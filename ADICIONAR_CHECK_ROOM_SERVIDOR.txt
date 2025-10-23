@@ -1,0 +1,31 @@
+﻿# Adicionar suporte a check-room no servidor Replit
+
+O servidor precisa deste evento:
+
+@socketio.on('check-room')
+def handle_check_room(data):
+    '''Verifica se uma sala existe e se tem host'''
+    room_code = data.get('roomCode', '').upper()
+    
+    print(f'[CHECK ROOM] Checking room {room_code}')
+    
+    if room_code not in rooms:
+        emit('room-status', {
+            'exists': False,
+            'hasHost': False,
+            'room_code': room_code
+        })
+        return
+    
+    room = rooms[room_code]
+    has_host = room.get('host') is not None
+    
+    emit('room-status', {
+        'exists': True,
+        'hasHost': has_host,
+        'room_code': room_code,
+        'players_count': len(room.get('players', []))
+    })
+
+# Adicione este código ao main.py do servidor Replit
+# Entre os outros @socketio.on eventos

@@ -1,0 +1,413 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Google Auth - PLAYnowemulator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .status {
+            padding: 15px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+            font-size: 14px;
+        }
+        
+        .status.info {
+            background: #e3f2fd;
+            border: 1px solid #2196f3;
+            color: #1976d2;
+        }
+        
+        .status.success {
+            background: #e8f5e9;
+            border: 1px solid #4caf50;
+            color: #2e7d32;
+        }
+        
+        .status.error {
+            background: #ffebee;
+            border: 1px solid #f44336;
+            color: #c62828;
+        }
+        
+        .button {
+            width: 100%;
+            padding: 15px;
+            border: none;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            margin-bottom: 15px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 10px;
+        }
+        
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+        
+        .button-google {
+            background: #4285f4;
+            color: white;
+        }
+        
+        .button-logout {
+            background: #f44336;
+            color: white;
+        }
+        
+        .button-test {
+            background: #ff9800;
+            color: white;
+        }
+        
+        .button:disabled {
+            background: #ccc;
+            cursor: not-allowed;
+            transform: none;
+        }
+        
+        .config-info {
+            background: #f5f5f5;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .config-info strong {
+            color: #667eea;
+        }
+        
+        .user-info {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 10px;
+            margin-bottom: 20px;
+        }
+        
+        .user-info img {
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            margin-bottom: 15px;
+        }
+        
+        .user-info p {
+            margin-bottom: 8px;
+            color: #333;
+        }
+        
+        .loading {
+            display: inline-block;
+            width: 20px;
+            height: 20px;
+            border: 3px solid #f3f3f3;
+            border-top: 3px solid #667eea;
+            border-radius: 50%;
+            animation: spin 1s linear infinite;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        .logs {
+            background: #1e1e1e;
+            color: #d4d4d4;
+            padding: 15px;
+            border-radius: 10px;
+            margin-top: 20px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .logs .log-entry {
+            margin-bottom: 5px;
+        }
+        
+        .logs .log-error {
+            color: #f48771;
+        }
+        
+        .logs .log-success {
+            color: #89d185;
+        }
+        
+        .logs .log-info {
+            color: #75beff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🧪 Teste de Autenticação Google</h1>
+        <p class="subtitle">PLAYnowemulator - Firebase Auth Test</p>
+        
+        <div id="status" class="status info">
+            <div class="loading"></div> Inicializando Firebase...
+        </div>
+        
+        <div id="user-info" style="display: none;"></div>
+        
+        <button id="btn-google" class="button button-google" disabled>
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z" fill="#4285F4"/>
+                <path d="M12 23c2.97 0 5.46-.98 7.28-2.66l-3.57-2.77c-.98.66-2.23 1.06-3.71 1.06-2.86 0-5.29-1.93-6.16-4.53H2.18v2.84C3.99 20.53 7.7 23 12 23z" fill="#34A853"/>
+                <path d="M5.84 14.09c-.22-.66-.35-1.36-.35-2.09s.13-1.43.35-2.09V7.07H2.18C1.43 8.55 1 10.22 1 12s.43 3.45 1.18 4.93l2.85-2.22.81-.62z" fill="#FBBC05"/>
+                <path d="M12 5.38c1.62 0 3.06.56 4.21 1.64l3.15-3.15C17.45 2.09 14.97 1 12 1 7.7 1 3.99 3.47 2.18 7.07l3.66 2.84c.87-2.6 3.3-4.53 6.16-4.53z" fill="#EA4335"/>
+            </svg>
+            Entrar com Google
+        </button>
+        
+        <button id="btn-logout" class="button button-logout" style="display: none;">
+            🚪 Sair
+        </button>
+        
+        <button id="btn-test" class="button button-test">
+            🔍 Testar Configuração
+        </button>
+        
+        <div class="config-info">
+            <strong>Configuração Firebase:</strong><br>
+            <div id="config-display"></div>
+        </div>
+        
+        <div class="logs" id="logs">
+            <div class="log-entry log-info">📋 Logs de teste...</div>
+        </div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+        // Configuração do Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyDmC_HF775QiX6EA3rx2xDF2XXw8zmg3yQ",
+            authDomain: "planowemulator.firebaseapp.com",
+            projectId: "planowemulator",
+            storageBucket: "planowemulator.firebasestorage.app",
+            messagingSenderId: "509464952147",
+            appId: "1:509464952147:web:59776912f625f3235cf5a6",
+            measurementId: "G-JQDRDZY9BJ"
+        };
+
+        // Logs
+        const logsDiv = document.getElementById('logs');
+        function addLog(message, type = 'info') {
+            const timestamp = new Date().toLocaleTimeString('pt-BR');
+            const log = document.createElement('div');
+            log.className = `log-entry log-${type}`;
+            log.textContent = `[${timestamp}] ${message}`;
+            logsDiv.appendChild(log);
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+
+        // Inicializar Firebase
+        let app, auth;
+        try {
+            app = initializeApp(firebaseConfig);
+            auth = getAuth(app);
+            addLog('✅ Firebase inicializado com sucesso', 'success');
+            
+            // Mostrar configuração
+            document.getElementById('config-display').innerHTML = `
+                Project ID: ${firebaseConfig.projectId}<br>
+                Auth Domain: ${firebaseConfig.authDomain}<br>
+                API Key: ${firebaseConfig.apiKey.substring(0, 20)}...
+            `;
+            
+            updateStatus('Firebase conectado! Pronto para testar.', 'success');
+            document.getElementById('btn-google').disabled = false;
+        } catch (error) {
+            addLog(`❌ Erro ao inicializar Firebase: ${error.message}`, 'error');
+            updateStatus(`Erro: ${error.message}`, 'error');
+        }
+
+        // Atualizar status
+        function updateStatus(message, type = 'info') {
+            const statusDiv = document.getElementById('status');
+            statusDiv.className = `status ${type}`;
+            statusDiv.innerHTML = message;
+        }
+
+        // Observar estado de autenticação
+        onAuthStateChanged(auth, (user) => {
+            if (user) {
+                addLog(`✅ Usuário autenticado: ${user.email}`, 'success');
+                showUserInfo(user);
+                document.getElementById('btn-google').style.display = 'none';
+                document.getElementById('btn-logout').style.display = 'block';
+            } else {
+                addLog('ℹ️ Usuário não autenticado', 'info');
+                document.getElementById('user-info').style.display = 'none';
+                document.getElementById('btn-google').style.display = 'block';
+                document.getElementById('btn-logout').style.display = 'none';
+            }
+        });
+
+        // Mostrar informações do usuário
+        function showUserInfo(user) {
+            const userInfoDiv = document.getElementById('user-info');
+            userInfoDiv.className = 'user-info';
+            userInfoDiv.innerHTML = `
+                ${user.photoURL ? `<img src="${user.photoURL}" alt="Avatar">` : ''}
+                <p><strong>Nome:</strong> ${user.displayName || 'N/A'}</p>
+                <p><strong>Email:</strong> ${user.email}</p>
+                <p><strong>ID:</strong> ${user.uid}</p>
+                <p><strong>Email Verificado:</strong> ${user.emailVerified ? '✅ Sim' : '❌ Não'}</p>
+            `;
+            userInfoDiv.style.display = 'block';
+            updateStatus('✅ Login realizado com sucesso!', 'success');
+        }
+
+        // Botão de login com Google
+        document.getElementById('btn-google').addEventListener('click', async () => {
+            addLog('🔐 Iniciando login com Google...', 'info');
+            updateStatus('Aguardando autenticação...', 'info');
+            
+            try {
+                const provider = new GoogleAuthProvider();
+                provider.setCustomParameters({ prompt: 'select_account' });
+                
+                addLog('📤 Abrindo popup de autenticação...', 'info');
+                const result = await signInWithPopup(auth, provider);
+                
+                addLog(`✅ Login bem-sucedido: ${result.user.email}`, 'success');
+                addLog(`📧 Email: ${result.user.email}`, 'info');
+                addLog(`👤 Nome: ${result.user.displayName}`, 'info');
+                addLog(`🆔 UID: ${result.user.uid}`, 'info');
+                
+            } catch (error) {
+                addLog(`❌ Erro no login: ${error.code}`, 'error');
+                addLog(`📝 Mensagem: ${error.message}`, 'error');
+                
+                let errorMessage = 'Erro ao fazer login com Google';
+                
+                if (error.code === 'auth/popup-closed-by-user') {
+                    errorMessage = '❌ Login cancelado pelo usuário';
+                } else if (error.code === 'auth/popup-blocked') {
+                    errorMessage = '❌ Pop-up bloqueado! Permita pop-ups no navegador';
+                } else if (error.code === 'auth/unauthorized-domain') {
+                    errorMessage = '❌ Domínio não autorizado! Configure os domínios autorizados no Firebase Console';
+                } else if (error.code === 'auth/operation-not-allowed') {
+                    errorMessage = '❌ Login com Google não está ativado! Ative no Firebase Console';
+                }
+                
+                updateStatus(errorMessage, 'error');
+                
+                // Instruções adicionais para erros específicos
+                if (error.code === 'auth/unauthorized-domain') {
+                    addLog('💡 Solução: Firebase Console → Authentication → Settings → Authorized domains', 'info');
+                    addLog(`💡 Adicione o domínio: ${window.location.hostname}`, 'info');
+                } else if (error.code === 'auth/operation-not-allowed') {
+                    addLog('💡 Solução: Firebase Console → Authentication → Sign-in method → Google', 'info');
+                    addLog('💡 Ative o provider Google', 'info');
+                }
+            }
+        });
+
+        // Botão de logout
+        document.getElementById('btn-logout').addEventListener('click', async () => {
+            addLog('🚪 Fazendo logout...', 'info');
+            try {
+                await signOut(auth);
+                addLog('✅ Logout realizado com sucesso', 'success');
+                updateStatus('Desconectado. Faça login novamente.', 'info');
+            } catch (error) {
+                addLog(`❌ Erro no logout: ${error.message}`, 'error');
+                updateStatus('Erro ao fazer logout', 'error');
+            }
+        });
+
+        // Botão de teste
+        document.getElementById('btn-test').addEventListener('click', () => {
+            addLog('🔍 Iniciando teste de configuração...', 'info');
+            
+            // Testar configuração
+            const tests = [
+                { name: 'Firebase App', value: !!app, required: true },
+                { name: 'Firebase Auth', value: !!auth, required: true },
+                { name: 'API Key', value: !!firebaseConfig.apiKey, required: true },
+                { name: 'Auth Domain', value: !!firebaseConfig.authDomain, required: true },
+                { name: 'Project ID', value: !!firebaseConfig.projectId, required: true },
+                { name: 'Pop-ups permitidos', value: !window.opener || window.opener !== window, required: false }
+            ];
+            
+            let allPassed = true;
+            tests.forEach(test => {
+                const status = test.value ? '✅' : '❌';
+                const type = test.value ? 'success' : 'error';
+                addLog(`${status} ${test.name}: ${test.value ? 'OK' : 'FALHOU'}`, type);
+                if (test.required && !test.value) allPassed = false;
+            });
+            
+            if (allPassed) {
+                addLog('✅ Todos os testes passaram!', 'success');
+                updateStatus('✅ Configuração correta! Tente fazer login.', 'success');
+            } else {
+                addLog('❌ Alguns testes falharam', 'error');
+                updateStatus('❌ Problemas na configuração detectados', 'error');
+            }
+            
+            // Informações adicionais
+            addLog(`ℹ️ URL atual: ${window.location.href}`, 'info');
+            addLog(`ℹ️ Domínio: ${window.location.hostname}`, 'info');
+            addLog(`ℹ️ Protocolo: ${window.location.protocol}`, 'info');
+        });
+
+        // Log inicial
+        addLog(`ℹ️ Página carregada em: ${window.location.href}`, 'info');
+        addLog(`ℹ️ Domínio: ${window.location.hostname}`, 'info');
+    </script>
+</body>
+</html>

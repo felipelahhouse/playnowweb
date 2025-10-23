@@ -1,0 +1,21 @@
+{
+  "projects": {
+    "e.g. staging": "planowemulator"
+  },
+  "targets": {
+    "planowemulator": {
+      "hosting": {
+        "production": [
+          "planowemulator",
+          "playnowemulator"
+        ]
+      },
+      "storage": {
+        "rules": [
+          "planowemulator.appspot.com"
+        ]
+      }
+    }
+  },
+  "etags": {}
+}

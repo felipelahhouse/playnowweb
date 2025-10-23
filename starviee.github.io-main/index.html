@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Lobby Multiplayer P2P</title>
+    <link rel="icon" type="image/x-icon" href="favicon.ico" />
+    <style>
+      :root {
+        color-scheme: dark light;
+        font-family: "Segoe UI", Tahoma, sans-serif;
+        font-size: 16px;
+        background: #0f172a;
+        color: #e2e8f0;
+      }
+
+      body {
+        margin: 0;
+        min-height: 100vh;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        padding: 24px;
+        box-sizing: border-box;
+      }
+
+      main {
+        width: min(960px, 100%);
+        background: rgba(15, 23, 42, 0.85);
+        border: 1px solid rgba(148, 163, 184, 0.15);
+        border-radius: 16px;
+        box-shadow: 0 24px 60px rgba(15, 23, 42, 0.35);
+        display: grid;
+        gap: 24px;
+        padding: 32px;
+      }
+
+      h1 {
+        margin: 0;
+        font-size: 1.8rem;
+      }
+
+      .subtitle {
+        margin: 4px 0 16px;
+        color: #94a3b8;
+      }
+
+      .layout {
+        display: grid;
+        gap: 24px;
+        grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+      }
+
+      .panel {
+        background: rgba(15, 23, 42, 0.65);
+        border: 1px solid rgba(148, 163, 184, 0.14);
+        border-radius: 12px;
+        padding: 20px;
+        display: grid;
+        gap: 16px;
+      }
+
+      label {
+        font-size: 0.85rem;
+        text-transform: uppercase;
+        letter-spacing: 0.08em;
+        color: #cbd5f5;
+      }
+
+      input {
+        width: 100%;
+        padding: 12px;
+        border-radius: 8px;
+        border: 1px solid rgba(148, 163, 184, 0.3);
+        background: rgba(15, 23, 42, 0.8);
+        color: inherit;
+        font-size: 1rem;
+      }
+
+      input:focus {
+        outline: 2px solid rgba(59, 130, 246, 0.6);
+      }
+
+      button {
+        cursor: pointer;
+        padding: 12px 16px;
+        border-radius: 8px;
+        font-size: 1rem;
+        border: none;
+        background: linear-gradient(135deg, #0ea5e9, #6366f1);
+        color: #f8fafc;
+        transition: transform 120ms ease, box-shadow 120ms ease;
+      }
+
+      button.secondary {
+        background: rgba(51, 65, 85, 0.65);
+      }
+
+      button:disabled {
+        opacity: 0.5;
+        cursor: not-allowed;
+      }
+
+      button:hover:enabled {
+        transform: translateY(-1px);
+        box-shadow: 0 12px 24px rgba(14, 165, 233, 0.25);
+      }
+
+      .status {
+        padding: 12px 16px;
+        border-radius: 8px;
+        background: rgba(59, 130, 246, 0.12);
+        border: 1px solid rgba(59, 130, 246, 0.3);
+        color: #bfdbfe;
+        font-size: 0.95rem;
+      }
+
+      .logs {
+        margin: 0;
+        padding: 0;
+        list-style: none;
+        font-size: 0.9rem;
+        max-height: 180px;
+        overflow-y: auto;
+      }
+
+      .logs li {
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(148, 163, 184, 0.1);
+        color: #cbd5f5;
+      }
+
+      .logs li:last-child {
+        border-bottom: none;
+      }
+
+      .game-wrapper {
+        display: grid;
+        gap: 16px;
+      }
+
+      canvas {
+        width: 100%;
+        max-width: 480px;
+        border-radius: 12px;
+        border: 1px solid rgba(148, 163, 184, 0.1);
+        background: rgba(15, 23, 42, 0.7);
+        margin: 0 auto;
+      }
+
+      .tips {
+        font-size: 0.85rem;
+        color: #94a3b8;
+        line-height: 1.5;
+        margin: 0;
+        text-align: center;
+      }
+
+      .peer-config {
+        border-top: 1px solid rgba(148, 163, 184, 0.1);
+        padding-top: 16px;
+        margin-top: 8px;
+        display: grid;
+        gap: 12px;
+      }
+
+      .peer-config h3 {
+        margin: 0;
+        font-size: 1.05rem;
+      }
+
+      .peer-config .hint {
+        margin: 0;
+        font-size: 0.8rem;
+        color: #a5b4fc;
+      }
+
+      .inline-fields {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 16px;
+        align-items: flex-end;
+      }
+
+      .inline-fields > div {
+        flex: 1;
+        min-width: 140px;
+      }
+
+      .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        font-size: 0.9rem;
+        text-transform: none;
+        letter-spacing: 0;
+        color: #cbd5f5;
+      }
+
+      .checkbox-label input {
+        width: auto;
+        margin: 0;
+      }
+
+      @media (max-width: 600px) {
+        body {
+          padding: 16px;
+        }
+
+        main {
+          padding: 20px;
+        }
+      }
+    </style>
+  </head>
+  <body>
+    <main>
+      <header>
+        <h1>Lobby Multiplayer P2P</h1>
+        <p class="subtitle">
+          Configure uma sala PeerJS para sincronizar o jogo entre host e convidado.
+          Use as setas ou WASD para mover. O host é autoritativo e envia o estado.
+        </p>
+        <div class="status" id="status">Aguardando configuração...</div>
+      </header>
+
+      <section class="layout">
+        <article class="panel">
+          <label for="playerName">Seu nome</label>
+          <input id="playerName" type="text" maxlength="24" placeholder="Ex: Player1" />
+
+          <button id="createRoomBtn">Criar sala (Host)</button>
+
+          <div>
+            <label for="roomIdInput">Entrar em sala existente</label>
+            <input id="roomIdInput" type="text" placeholder="ID da sala" />
+          </div>
+          <button class="secondary" id="joinRoomBtn">Entrar como convidado</button>
+
+          <div>
+            <label for="roomShare">Compartilhe este ID</label>
+            <input id="roomShare" type="text" readonly />
+          </div>
+
+          <div class="peer-config">
+            <h3>Servidor PeerJS</h3>
+            <p class="hint">Deixe os campos vazios para usar o servidor público padrão ou defina seu host PeerServer.</p>
+            <div>
+              <label for="peerHost">Host</label>
+              <input
+                id="peerHost"
+                type="text"
+                placeholder="Ex: localhost ou peer.example.com"
+                autocomplete="off"
+              />
+            </div>
+            <div class="inline-fields">
+              <div>
+                <label for="peerPort">Porta</label>
+                <input id="peerPort" type="number" min="1" max="65535" placeholder="Ex: 9000" />
+              </div>
+              <label class="checkbox-label">
+                <input id="peerSecure" type="checkbox" />
+                <span>HTTPS (secure)</span>
+              </label>
+            </div>
+            <div>
+              <label for="peerPath">Path</label>
+              <input id="peerPath" type="text" value="/peerjs" placeholder="Ex: /peerjs" autocomplete="off" />
+            </div>
+          </div>
+        </article>
+
+        <article class="panel">
+          <h2>Eventos</h2>
+          <ul class="logs" id="eventLog"></ul>
+        </article>
+      </section>
+
+      <section class="panel game-wrapper">
+        <h2>Preview do jogo sincronizado</h2>
+        <canvas id="gameCanvas" width="480" height="320"></canvas>
+        <p class="tips">
+          Host e convidado controlam avatares diferentes. O host replica o estado a cada quadro.
+          Para testar em localhost, abra esta página em duas abas distintas.<br>
+          <strong>Suporte a Gamepad:</strong> Conecte até 2 controles no mesmo PC para jogar local multiplayer (Player 1 = local, Player 2 = remoto/guest).
+        </p>
+      </section>
+    </main>
+
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js" integrity="sha384-0HftFYj9JlY6dMwkTSP/935cptzQtkE/T7xWVXeNLpJ2Ri9iF1L8msWS2E0hk3h8" crossorigin="anonymous"></script>
+    <script type="module" src="main.js"></script>
+  </body>
+</html>

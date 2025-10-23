@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SNES Emulator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #000;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            overflow: hidden;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        
+        #game-container {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        
+        #game {
+            width: 100%;
+            height: 100%;
+        }
+        
+        #loading {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #0ea5e9;
+            z-index: 1000;
+        }
+        
+        #loading.hidden {
+            display: none;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(14, 165, 233, 0.2);
+            border-top-color: #0ea5e9;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        #error {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #ef4444;
+            padding: 30px;
+            background: rgba(0, 0, 0, 0.95);
+            border-radius: 12px;
+            border: 2px solid #ef4444;
+            max-width: 500px;
+            display: none;
+            z-index: 1001;
+        }
+        
+        #error.show {
+            display: block;
+        }
+        
+        .error-icon {
+            font-size: 48px;
+            margin-bottom: 16px;
+        }
+        
+        .retry-btn {
+            margin-top: 20px;
+            padding: 12px 24px;
+            background: #0ea5e9;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 600;
+        }
+        
+        .retry-btn:hover {
+            background: #0284c7;
+        }
+    </style>
+</head>
+<body>
+    <div id="game-container">
+        <div id="loading">
+            <div class="spinner"></div>
+            <div id="loading-text">Carregando emulador SNES...</div>
+        </div>
+        
+        <div id="error">
+            <div class="error-icon">⚠️</div>
+            <div id="error-text">Erro ao carregar o emulador</div>
+            <button class="retry-btn" onclick="location.reload()">Tentar Novamente</button>
+        </div>
+        
+        <div id="game"></div>
+    </div>
+
+    <script>
+        // Configuração do EmulatorJS
+        const params = new URLSearchParams(window.location.search);
+        const romUrl = params.get('rom');
+        const gameTitle = params.get('title') || 'SNES Game';
+    const romFileName = params.get('file') || `${gameTitle}.smc`;
+        
+        const loading = document.getElementById('loading');
+        const loadingText = document.getElementById('loading-text');
+        const errorDiv = document.getElementById('error');
+        const errorText = document.getElementById('error-text');
+        
+        function showError(message) {
+            loading.classList.add('hidden');
+            errorDiv.classList.add('show');
+            errorText.textContent = message;
+            
+            // Notifica o parent
+            notifyParent({ type: 'emulator-error', message });
+        }
+        
+        function notifyParent(data) {
+            try {
+                if (window.parent && window.parent !== window) {
+                    window.parent.postMessage(data, '*');
+                }
+            } catch (e) {
+                console.warn('Erro ao notificar parent:', e);
+            }
+        }
+        
+        function updateLoading(text) {
+            loadingText.textContent = text;
+        }
+
+        const CDN_SOURCES = [
+            {
+                name: 'EmulatorJS CDN (oficial)',
+                base: 'https://cdn.emulatorjs.org/stable/'
+            },
+            {
+                name: 'GitHack Mirror',
+                base: 'https://rawcdn.githack.com/EmulatorJS/EmulatorJS/stable/'
+            },
+            {
+                name: 'jsDelivr Mirror',
+                base: 'https://cdn.jsdelivr.net/gh/EmulatorJS/EmulatorJS@latest/'
+            }
+        ];
+
+        var currentCdnIndex = 0;
+        var loaderScript = null;
+        
+        if (!romUrl) {
+            showError('Nenhuma ROM foi especificada');
+        } else {
+            window.addEventListener('error', (event) => {
+                console.error('[WINDOW ERROR]', event.message, event);
+                showError(`Erro no emulador: ${event.message}`);
+            });
+
+            window.addEventListener('unhandledrejection', (event) => {
+                console.error('[UNHANDLED REJECTION]', event.reason);
+                showError(`Erro interno: ${event.reason?.message || event.reason || 'Falha desconhecida'}`);
+            });
+
+            // ========================================
+            // 🔊 FIX: Prevenir erro de AudioContext
+            // ========================================
+            // Limpar localStorage para evitar carregar configurações corrompidas
+            try {
+                const keysToRemove = [];
+                for (let i = 0; i < localStorage.length; i++) {
+                    const key = localStorage.key(i);
+                    if (key && (key.includes('EJS_') || key.includes('emulator'))) {
+                        keysToRemove.push(key);
+                    }
+                }
+                keysToRemove.forEach(key => localStorage.removeItem(key));
+                console.log('[STORAGE] localStorage limpo para evitar erros');
+            } catch (e) {
+                console.log('[STORAGE] Não foi possível limpar localStorage');
+            }
+
+            // Configurações básicas do EmulatorJS
+            window.EJS_player = '#game';
+            window.EJS_core = 'snes';
+            window.EJS_gameUrl = romUrl;
+            window.EJS_gameName = romFileName;
+            window.EJS_color = '#0ea5e9';
+            window.EJS_startOnLoaded = true;
+            window.EJS_volume = 0.5;
+            window.EJS_virtualkeyboard = false;
+            window.EJS_fullscreenOnDoubleClick = true;
+            window.EJS_language = 'en-US';
+            window.EJS_biosUrl = '';
+            window.EJS_gameParentUrl = '';
+            window.EJS_oldCores = false;
+            window.EJS_threads = false;
+            window.EJS_disableDatabases = true; // Desabilita salvamento de configurações
+            window.EJS_disableCue = true;
+            
+            // Desabilita menu de cheats
+            window.EJS_gameCheats = false;
+            window.EJS_hideCheatMenu = true;
+
+            // Callbacks - COM MAIS DEBUG
+            window.EJS_onGameStart = function() {
+                console.log('[SUCCESS] Jogo iniciado!');
+                loading.classList.add('hidden');
+                notifyParent({ type: 'emulator-ready' });
+                
+                // Configurar volume após o jogo iniciar
+                setTimeout(() => {
+                    try {
+                        if (window.EJS_emulator && typeof window.EJS_emulator.setVolume === 'function') {
+                            window.EJS_emulator.setVolume(0.5);
+                            console.log('[AUDIO] Volume configurado com sucesso');
+                        }
+                    } catch (e) {
+                        console.log('[AUDIO] Não foi possível configurar volume:', e);
+                    }
+                }, 1000);
+                
+                // 🎥 STREAMING: Capturar e enviar frames para multiplayer
+                let frameCounter = 0;
+                setInterval(() => {
+                    try {
+                        const canvas = document.querySelector('#game canvas');
+                        if (canvas) {
+                            frameCounter++;
+                            // Envia 10 frames por segundo (a cada 100ms)
+                            const dataUrl = canvas.toDataURL('image/jpeg', 0.6); // Qualidade 60% para reduzir tamanho
+                            notifyParent({ 
+                                type: 'emulator-frame', 
+                                canvas: dataUrl,
+                                frameNumber: frameCounter
+                            });
+                            
+                            if (frameCounter % 50 === 0) {
+                                console.log(`[STREAMING] Frame #${frameCounter} enviado (${Math.round(dataUrl.length / 1024)}KB)`);
+                            }
+                        }
+                    } catch (e) {
+                        console.error('[STREAMING] Erro ao capturar frame:', e);
+                    }
+                }, 100); // 10 FPS para streaming
+            };
+
+            window.EJS_onLoadState = function() {
+                console.log('[INFO] Carregando estado...');
+                updateLoading('Carregando estado do jogo...');
+            };
+
+            window.EJS_ready = function() {
+                console.log('[INFO] Emulador pronto!');
+                updateLoading('Iniciando jogo...');
+            };
+
+            window.EJS_onError = function(error) {
+                console.error('[ERROR] Erro no emulador:', error);
+                showError(error?.message || 'Falha ao iniciar o emulador');
+            };
+
+            window.EJS_onLoaded = function() {
+                console.log('[INFO] Core carregado com sucesso!');
+                updateLoading('Core SNES9x carregado, iniciando ROM...');
+            };
+
+            function loadFromCdn(index) {
+                if (index >= CDN_SOURCES.length) {
+                    console.error('[ERROR] Todas as fontes falharam');
+                    showError('Falha ao carregar o motor do emulador em todas as fontes disponíveis.');
+                    return;
+                }
+
+                const source = CDN_SOURCES[index];
+                currentCdnIndex = index;
+
+                // Remove script anterior, se existir
+                if (loaderScript) {
+                    loaderScript.remove();
+                }
+
+                window.EJS_pathtodata = `${source.base}data/`;
+
+                console.log(`[INFO] Carregando EmulatorJS de ${source.name}`);
+                updateLoading(`Baixando motor do emulador... (fonte ${index + 1}/${CDN_SOURCES.length})`);
+
+                loaderScript = document.createElement('script');
+                loaderScript.crossOrigin = "anonymous";
+                loaderScript.src = `${source.base}data/loader.js`;
+                loaderScript.async = true;
+
+                loaderScript.onload = function() {
+                    console.log(`[SUCCESS] EmulatorJS carregado de ${source.name}!`);
+                    updateLoading('Preparando emulador SNES...');
+                };
+
+                loaderScript.onerror = function(error) {
+                    console.error(`[ERROR] Falha ao carregar EmulatorJS de ${source.name}`, error);
+                    updateLoading('Rede falhou, tentando outra fonte...');
+                    setTimeout(() => loadFromCdn(index + 1), 500);
+                };
+
+                document.body.appendChild(loaderScript);
+            }
+
+            loadFromCdn(0);
+
+            // Timeout de segurança - 60 segundos para primeira carga
+            let timeoutCount = 0;
+            const checkInterval = setInterval(() => {
+                timeoutCount++;
+                if (!loading.classList.contains('hidden')) {
+                    if (timeoutCount >= 120) { // 60 segundos (120 * 500ms)
+                        clearInterval(checkInterval);
+                        console.error('[TIMEOUT] Emulador não iniciou em 60 segundos');
+                        showError('Timeout ao carregar o emulador. Tente recarregar a página ou verifique sua conexão.');
+                    } else if (timeoutCount % 20 === 0) { // A cada 10 segundos
+                        const seconds = Math.floor(timeoutCount / 2);
+                        const currentSource = CDN_SOURCES[currentCdnIndex] || { name: 'desconhecida' };
+                        console.log(`[INFO] Aguardando... ${seconds}s (Fonte: ${currentSource.name})`);
+                        updateLoading(`Carregando emulador... (${seconds}s). Fonte: ${currentSource.name}`);
+                    }
+                } else {
+                    clearInterval(checkInterval);
+                }
+            }, 500);
+        }
+        
+        // Previne zoom em mobile
+        document.addEventListener('touchstart', function(event) {
+            if (event.touches.length > 1) {
+                event.preventDefault();
+            }
+        }, { passive: false });
+        
+        // Previne context menu no canvas
+        document.addEventListener('contextmenu', function(e) {
+            if (e.target.tagName === 'CANVAS') {
+                e.preventDefault();
+            }
+        });
+    </script>
+</body>
+</html>

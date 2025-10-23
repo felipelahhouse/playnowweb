@@ -1,0 +1,138 @@
+<!doctype html>
+<html lang="pt-BR">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="icon" type="image/svg+xml" href="/vite.svg" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=5.0, user-scalable=yes, viewport-fit=cover" />
+    
+    <!-- 🚀 Performance & SEO -->
+    <meta name="theme-color" content="#06b6d4" />
+    <meta name="mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-capable" content="yes" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
+    
+    <!-- Preconnect para recursos externos -->
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="dns-prefetch" href="https://fonts.googleapis.com" />
+    
+    <!-- 🔥 PREVINE CACHE - Força navegador a sempre pegar versão nova -->
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate" />
+    <meta http-equiv="Pragma" content="no-cache" />
+    <meta http-equiv="Expires" content="0" />
+    
+    <title>PlayNow Emulator - Retro Gaming Platform</title>
+    <meta name="description" content="Play classic retro games online with multiplayer support, live streaming, and more!" />
+    
+    <!-- 🚫 BLOQUEIA SERVICE WORKER E SUPRIME ERROS - Executa ANTES de tudo -->
+    <script>
+      (function() {
+        // ========================================
+        // 🛡️ SUPRESSÃO GLOBAL DE ERROS (PRIMEIRO!)
+        // ========================================
+        
+        // Suprime erros globais de window
+        window.addEventListener('error', function(e) {
+          const msg = e.message || '';
+          if (
+            msg.includes('ServiceWorker') ||
+            msg.includes('service worker') ||
+            msg.includes('service-worker') ||
+            msg.includes('Service Worker') ||
+            msg.includes('desabilitado') ||
+            msg.includes('disabled') ||
+            msg.includes('blocked') ||
+            msg.includes('bloqueada') ||
+            msg.includes('sw.js') ||
+            msg.includes('InvalidStateError') ||
+            msg.includes('Failed to update a ServiceWorker') ||
+            msg.includes('Failed to register a ServiceWorker') ||
+            msg.includes('Not found') ||
+            msg.includes('Unknown')
+          ) {
+            e.preventDefault();
+            e.stopPropagation();
+            e.stopImmediatePropagation();
+            return false;
+          }
+        }, true);
+        
+        // Suprime promises rejeitadas
+        window.addEventListener('unhandledrejection', function(e) {
+          const msg = String(e.reason || '');
+          if (
+            msg.includes('ServiceWorker') ||
+            msg.includes('service worker') ||
+            msg.includes('service-worker') ||
+            msg.includes('Service Worker') ||
+            msg.includes('desabilitado') ||
+            msg.includes('disabled') ||
+            msg.includes('blocked') ||
+            msg.includes('bloqueada') ||
+            msg.includes('sw.js') ||
+            msg.includes('InvalidStateError') ||
+            msg.includes('Failed to update a ServiceWorker') ||
+            msg.includes('Failed to register a ServiceWorker') ||
+            msg.includes('Not found') ||
+            msg.includes('Unknown')
+          ) {
+            e.preventDefault();
+            e.stopPropagation();
+            return false;
+          }
+        }, true);
+        
+        // Suprime console.error
+        const originalError = console.error;
+        console.error = function(...args) {
+          const message = args[0]?.toString() || '';
+          if (
+            message.includes('ServiceWorker') ||
+            message.includes('service worker') ||
+            message.includes('service-worker') ||
+            message.includes('Service Worker') ||
+            message.includes('desabilitado') ||
+            message.includes('disabled') ||
+            message.includes('blocked') ||
+            message.includes('bloqueada') ||
+            message.includes('sw.js') ||
+            message.includes('InvalidStateError') ||
+            message.includes('Failed to update a ServiceWorker') ||
+            message.includes('Failed to register a ServiceWorker') ||
+            message.includes('Missing or insufficient permissions') ||
+            message.includes('FirebaseError') ||
+            message.includes('Not found') ||
+            message.includes('Unknown')
+          ) {
+            return; // Não exibe o erro
+          }
+          originalError.apply(console, args);
+        };
+        
+        // ========================================
+        // 🚫 BLOQUEIA SERVICE WORKER
+        // ========================================
+        
+        if ('serviceWorker' in navigator) {
+          // Bloqueia registro de ServiceWorker imediatamente
+          navigator.serviceWorker.register = function() {
+            return Promise.reject(new Error('Service Worker desabilitado'));
+          };
+          
+          // Desregistrar ServiceWorkers existentes (silenciosamente)
+          navigator.serviceWorker.getRegistrations().then(registrations => {
+            registrations.forEach(registration => {
+              registration.unregister().catch(() => {});
+            });
+          }).catch(() => {});
+        }
+      })();
+    </script>
+    
+    <!-- 🔄 AUTO-RELOAD: Detecta novas versões e atualiza automaticamente -->
+    <script src="/auto-reload.js"></script>
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

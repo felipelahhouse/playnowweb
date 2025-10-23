@@ -1,0 +1,15 @@
+run = "npm run dev-with-server"
+modules = ["nodejs-20"]
+
+[env]
+NODE_ENV = "production"
+PORT = "3000"
+REPLIT_URL = "https://${REPLIT_OWNER}.replit.dev"
+
+[packager]
+language = "nodejs"
+
+[packager.features]
+packageSearch = true
+guessImports = true
+enableGuessPython = false

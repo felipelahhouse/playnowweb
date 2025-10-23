@@ -1,0 +1,336 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SNES Emulator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #0a0a0a;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            overflow: hidden;
+        }
+        
+        #container {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        
+        #emulator-container {
+            width: 100%;
+            max-width: 1024px;
+            height: 80vh;
+            position: relative;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        canvas {
+            max-width: 100%;
+            max-height: 100%;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            background: #000;
+            border: 3px solid #0ea5e9;
+            box-shadow: 0 0 30px rgba(14, 165, 233, 0.5);
+        }
+        
+        #status {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #0ea5e9;
+            font-size: 18px;
+            font-weight: 600;
+            text-align: center;
+            padding: 40px;
+            background: rgba(0, 0, 0, 0.95);
+            border-radius: 16px;
+            border: 3px solid #0ea5e9;
+            min-width: 350px;
+            z-index: 1000;
+            box-shadow: 0 0 40px rgba(14, 165, 233, 0.3);
+        }
+        
+        #status.hidden {
+            display: none;
+        }
+        
+        #status.error {
+            color: #ef4444;
+            border-color: #ef4444;
+            box-shadow: 0 0 40px rgba(239, 68, 68, 0.3);
+        }
+        
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 5px solid rgba(14, 165, 233, 0.2);
+            border-top-color: #0ea5e9;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 25px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        #progress-bar {
+            width: 100%;
+            height: 6px;
+            background: rgba(14, 165, 233, 0.2);
+            border-radius: 3px;
+            margin-top: 20px;
+            overflow: hidden;
+        }
+        
+        #progress-fill {
+            width: 0%;
+            height: 100%;
+            background: linear-gradient(90deg, #0ea5e9, #06b6d4);
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+        
+        #controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.95);
+            padding: 20px 30px;
+            border-radius: 16px;
+            border: 2px solid #0ea5e9;
+            color: #fff;
+            font-size: 13px;
+            text-align: center;
+            z-index: 100;
+            box-shadow: 0 0 30px rgba(14, 165, 233, 0.3);
+        }
+        
+        #controls strong {
+            color: #0ea5e9;
+            font-size: 15px;
+            display: block;
+            margin-bottom: 10px;
+        }
+        
+        .control-row {
+            margin: 5px 0;
+            color: #94a3b8;
+        }
+        
+        .key {
+            display: inline-block;
+            background: #1e293b;
+            color: #0ea5e9;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            margin: 0 3px;
+            border: 1px solid #334155;
+        }
+        
+        button {
+            margin-top: 20px;
+            padding: 12px 25px;
+            background: #0ea5e9;
+            color: white;
+            border: none;
+            border-radius: 10px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 15px;
+            transition: all 0.2s;
+        }
+        
+        button:hover {
+            background: #0284c7;
+            transform: translateY(-2px);
+            box-shadow: 0 5px 20px rgba(14, 165, 233, 0.4);
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="status">
+            <div class="spinner"></div>
+            <div id="statusText">Carregando emulador...</div>
+            <div id="progress-bar">
+                <div id="progress-fill"></div>
+            </div>
+            <button id="retryBtn" style="display: none;" onclick="location.reload()">Tentar Novamente</button>
+        </div>
+        <div id="emulator-container">
+            <canvas id="canvas"></canvas>
+        </div>
+        <div id="controls" style="display: none;">
+            <strong>🎮 Controles do SNES</strong>
+            <div class="control-row">
+                Direcionais: <span class="key">↑</span> <span class="key">↓</span> <span class="key">←</span> <span class="key">→</span>
+            </div>
+            <div class="control-row">
+                Botões: <span class="key">Z</span>=A <span class="key">X</span>=B <span class="key">A</span>=X <span class="key">S</span>=Y
+            </div>
+            <div class="control-row">
+                Sistema: <span class="key">Enter</span>=Start <span class="key">Shift</span>=Select
+            </div>
+            <div class="control-row">
+                Ombros: <span class="key">Q</span>=L <span class="key">W</span>=R
+            </div>
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/@ruffle-rs/ruffle"></script>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const romUrl = params.get('rom');
+        const gameTitle = params.get('title') || 'SNES Game';
+        
+        const canvas = document.getElementById('canvas');
+        const statusEl = document.getElementById('status');
+        const statusText = document.getElementById('statusText');
+        const retryBtn = document.getElementById('retryBtn');
+        const controlsEl = document.getElementById('controls');
+        const progressFill = document.getElementById('progress-fill');
+        
+        let Module = null;
+        
+        function notifyParent(data) {
+            try {
+                if (window.parent && window.parent !== window) {
+                    window.parent.postMessage(data, '*');
+                }
+            } catch (e) {
+                console.warn('Erro ao notificar parent:', e);
+            }
+        }
+        
+        function showError(message) {
+            statusEl.classList.add('error');
+            statusEl.classList.remove('hidden');
+            statusText.textContent = message;
+            retryBtn.style.display = 'block';
+            notifyParent({ type: 'emulator-error', message });
+        }
+        
+        function updateStatus(text, progress = null) {
+            statusText.textContent = text;
+            if (progress !== null) {
+                progressFill.style.width = `${progress}%`;
+            }
+        }
+        
+        async function loadEmulator() {
+            try {
+                if (!romUrl) {
+                    throw new Error('Nenhuma ROM especificada');
+                }
+                
+                updateStatus('Baixando ROM...', 10);
+                
+                const response = await fetch(romUrl);
+                if (!response.ok) {
+                    throw new Error(`Falha ao carregar ROM (${response.status})`);
+                }
+                
+                const arrayBuffer = await response.arrayBuffer();
+                let romData = new Uint8Array(arrayBuffer);
+                
+                updateStatus('Processando ROM...', 30);
+                
+                // Remove header SMC se presente
+                if (romData.length % 1024 === 512) {
+                    console.log('Removendo header SMC (512 bytes)');
+                    romData = romData.slice(512);
+                }
+                
+                console.log(`ROM carregada: ${romData.length} bytes (${(romData.length / 1024).toFixed(2)} KB)`);
+                
+                updateStatus('Carregando emulador SNES...', 50);
+                
+                // Usar Emularity (Archive.org) - comprovadamente funcional
+                const script = document.createElement('script');
+                script.src = 'https://archive.org/cors/scummvm/emularity/loader.js';
+                
+                script.onload = () => {
+                    updateStatus('Inicializando núcleo SNES...', 70);
+                    
+                    try {
+                        // Configuração do Emularity
+                        const emulator = new Emulator(canvas, null, new BFSOpenZip(new BFSArrayBuffer(romData)));
+                        
+                        emulator.runner.then(() => {
+                            updateStatus('Iniciando jogo...', 90);
+                            
+                            setTimeout(() => {
+                                statusEl.classList.add('hidden');
+                                controlsEl.style.display = 'block';
+                                notifyParent({ type: 'emulator-ready' });
+                                console.log('✅ Emulador SNES iniciado com sucesso!');
+                            }, 1000);
+                        }).catch(err => {
+                            console.error('Erro ao iniciar runner:', err);
+                            showError('Erro ao iniciar o emulador: ' + err.message);
+                        });
+                        
+                    } catch (err) {
+                        console.error('Erro ao criar emulador:', err);
+                        showError('Erro ao criar emulador: ' + err.message);
+                    }
+                };
+                
+                script.onerror = () => {
+                    console.error('Erro ao carregar Emularity');
+                    showError('Falha ao carregar biblioteca do emulador');
+                };
+                
+                document.head.appendChild(script);
+                
+            } catch (error) {
+                console.error('Erro:', error);
+                showError(error.message || 'Erro ao carregar o jogo');
+            }
+        }
+        
+        // Configuração de tela cheia ao clicar no canvas
+        canvas.addEventListener('click', () => {
+            if (canvas.requestFullscreen) {
+                canvas.requestFullscreen();
+            } else if (canvas.webkitRequestFullscreen) {
+                canvas.webkitRequestFullscreen();
+            }
+        });
+        
+        // Previne zoom e context menu
+        document.addEventListener('contextmenu', e => e.preventDefault());
+        document.addEventListener('touchstart', function(event) {
+            if (event.touches.length > 1) {
+                event.preventDefault();
+            }
+        }, { passive: false });
+        
+        // Inicia
+        document.title = `${gameTitle} - SNES Emulator`;
+        loadEmulator();
+    </script>
+</body>
+</html>

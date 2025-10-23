@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🎮 Teste Socket.IO - Multiplayer</title>
+  <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+    }
+
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      min-height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    .container {
+      background: white;
+      border-radius: 20px;
+      padding: 40px;
+      max-width: 800px;
+      width: 100%;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    }
+
+    h1 {
+      color: #667eea;
+      margin-bottom: 10px;
+      font-size: 2rem;
+    }
+
+    .subtitle {
+      color: #666;
+      margin-bottom: 30px;
+    }
+
+    .status {
+      padding: 15px;
+      border-radius: 10px;
+      margin-bottom: 20px;
+      font-weight: bold;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+
+    .status.disconnected {
+      background: #fee;
+      color: #c33;
+    }
+
+    .status.connected {
+      background: #efe;
+      color: #3c3;
+    }
+
+    .status-dot {
+      width: 12px;
+      height: 12px;
+      border-radius: 50%;
+      animation: pulse 2s infinite;
+    }
+
+    .status.connected .status-dot {
+      background: #3c3;
+    }
+
+    .status.disconnected .status-dot {
+      background: #c33;
+    }
+
+    @keyframes pulse {
+      0%, 100% { opacity: 1; }
+      50% { opacity: 0.5; }
+    }
+
+    .buttons {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+      gap: 15px;
+      margin-bottom: 30px;
+    }
+
+    button {
+      padding: 15px 25px;
+      font-size: 1rem;
+      font-weight: bold;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: all 0.3s ease;
+      color: white;
+    }
+
+    button:hover:not(:disabled) {
+      transform: translateY(-2px);
+      box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+    }
+
+    button:disabled {
+      opacity: 0.5;
+      cursor: not-allowed;
+    }
+
+    .btn-connect {
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+
+    .btn-create {
+      background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
+    }
+
+    .btn-join {
+      background: linear-gradient(135deg, #4facfe 0%, #00f2fe 100%);
+    }
+
+    .btn-input {
+      background: linear-gradient(135deg, #43e97b 0%, #38f9d7 100%);
+    }
+
+    .btn-disconnect {
+      background: linear-gradient(135deg, #fa709a 0%, #fee140 100%);
+    }
+
+    .input-group {
+      margin-bottom: 20px;
+    }
+
+    .input-group label {
+      display: block;
+      margin-bottom: 8px;
+      font-weight: 600;
+      color: #333;
+    }
+
+    .input-group input {
+      width: 100%;
+      padding: 12px;
+      font-size: 1rem;
+      border: 2px solid #ddd;
+      border-radius: 8px;
+      transition: border-color 0.3s;
+    }
+
+    .input-group input:focus {
+      outline: none;
+      border-color: #667eea;
+    }
+
+    .log {
+      background: #f5f5f5;
+      border-radius: 10px;
+      padding: 20px;
+      max-height: 400px;
+      overflow-y: auto;
+      font-family: 'Courier New', monospace;
+      font-size: 0.9rem;
+    }
+
+    .log-entry {
+      padding: 8px;
+      margin-bottom: 8px;
+      border-radius: 5px;
+      border-left: 4px solid #667eea;
+    }
+
+    .log-entry.success {
+      background: #e8f5e9;
+      border-left-color: #4caf50;
+    }
+
+    .log-entry.error {
+      background: #ffebee;
+      border-left-color: #f44336;
+    }
+
+    .log-entry.info {
+      background: #e3f2fd;
+      border-left-color: #2196f3;
+    }
+
+    .log-time {
+      color: #999;
+      font-size: 0.8rem;
+      margin-right: 10px;
+    }
+
+    .info-box {
+      background: #fff3cd;
+      border: 2px solid #ffc107;
+      border-radius: 10px;
+      padding: 15px;
+      margin-bottom: 20px;
+    }
+
+    .info-box strong {
+      display: block;
+      margin-bottom: 5px;
+      color: #856404;
+    }
+
+    .info-box code {
+      background: #fff;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-family: 'Courier New', monospace;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🎮 Teste Socket.IO Multiplayer</h1>
+    <p class="subtitle">Teste a conexão do servidor Socket.IO com Firebase Cloud Functions</p>
+
+    <div id="status" class="status disconnected">
+      <span class="status-dot"></span>
+      <span>Desconectado</span>
+    </div>
+
+    <div class="info-box">
+      <strong>📍 URL do Servidor:</strong>
+      <code id="serverUrl">http://127.0.0.1:5001/planowemulator/us-central1/socketio</code>
+    </div>
+
+    <div class="buttons">
+      <button class="btn-connect" onclick="connect()">🔌 Conectar</button>
+      <button class="btn-create" onclick="createRoom()" id="btnCreate" disabled>➕ Criar Sala</button>
+      <button class="btn-input" onclick="sendInput()" id="btnInput" disabled>🎮 Enviar Input</button>
+      <button class="btn-disconnect" onclick="disconnect()" id="btnDisconnect" disabled>🚪 Desconectar</button>
+    </div>
+
+    <div class="input-group">
+      <label for="playerName">👤 Nome do Jogador:</label>
+      <input type="text" id="playerName" placeholder="Digite seu nome" value="Player1">
+    </div>
+
+    <div class="input-group">
+      <label for="sessionId">🎲 Código da Sala:</label>
+      <input type="text" id="sessionId" placeholder="Ex: ABC123" value="">
+    </div>
+
+    <h3 style="margin-top: 30px; margin-bottom: 15px; color: #333;">📋 Log de Eventos:</h3>
+    <div class="log" id="log"></div>
+  </div>
+
+  <script>
+    let socket = null;
+    let currentRoom = null;
+    const SERVER_URL = 'http://127.0.0.1:5001/planowemulator/us-central1/socketio';
+
+    document.getElementById('serverUrl').textContent = SERVER_URL;
+
+    function updateStatus(connected) {
+      const statusEl = document.getElementById('status');
+      const btnCreate = document.getElementById('btnCreate');
+      const btnInput = document.getElementById('btnInput');
+      const btnDisconnect = document.getElementById('btnDisconnect');
+
+      if (connected) {
+        statusEl.className = 'status connected';
+        statusEl.innerHTML = '<span class="status-dot"></span><span>Conectado - Socket ID: ' + socket.id + '</span>';
+        btnCreate.disabled = false;
+        btnInput.disabled = false;
+        btnDisconnect.disabled = false;
+      } else {
+        statusEl.className = 'status disconnected';
+        statusEl.innerHTML = '<span class="status-dot"></span><span>Desconectado</span>';
+        btnCreate.disabled = true;
+        btnInput.disabled = true;
+        btnDisconnect.disabled = true;
+      }
+    }
+
+    function log(message, type = 'info') {
+      const logEl = document.getElementById('log');
+      const time = new Date().toLocaleTimeString();
+      const entry = document.createElement('div');
+      entry.className = `log-entry ${type}`;
+      entry.innerHTML = `<span class="log-time">${time}</span>${message}`;
+      logEl.insertBefore(entry, logEl.firstChild);
+      console.log(`[${time}] ${message}`);
+    }
+
+    function connect() {
+      if (socket?.connected) {
+        log('⚠️ Já está conectado!', 'info');
+        return;
+      }
+
+      log('🔌 Conectando ao servidor Socket.IO...', 'info');
+
+      socket = io(SERVER_URL, {
+        transports: ['websocket', 'polling'],
+        reconnection: true,
+        reconnectionDelay: 1000,
+        reconnectionAttempts: 5
+      });
+
+      socket.on('connect', () => {
+        log('✅ Conectado com sucesso! Socket ID: ' + socket.id, 'success');
+        updateStatus(true);
+      });
+
+      socket.on('disconnect', (reason) => {
+        log('❌ Desconectado. Motivo: ' + reason, 'error');
+        updateStatus(false);
+      });
+
+      socket.on('connect_error', (error) => {
+        log('❌ Erro de conexão: ' + error.message, 'error');
+      });
+
+      // Eventos de sala
+      socket.on('joined-room', (data) => {
+        log(`✅ Entrou na sala! Host: ${data.isHost}, Players: ${data.players}`, 'success');
+        currentRoom = data.sessionId;
+        document.getElementById('sessionId').value = data.sessionId;
+      });
+
+      socket.on('player-joined', (data) => {
+        log(`👤 ${data.player.name} entrou na sala (${data.totalPlayers} jogadores)`, 'info');
+      });
+
+      socket.on('player-left', (data) => {
+        log(`👋 ${data.playerName} saiu da sala (${data.totalPlayers} jogadores restantes)`, 'info');
+      });
+
+      socket.on('player-input', (data) => {
+        log(`🎮 Input recebido de ${data.playerName}: ${data.key} (${data.type})`, 'info');
+      });
+
+      socket.on('game-state', (data) => {
+        log(`📥 Estado do jogo recebido (${JSON.stringify(data.state).length} bytes)`, 'info');
+      });
+
+      socket.on('chat-message', (data) => {
+        log(`💬 ${data.playerName}: ${data.message}`, 'info');
+      });
+
+      socket.on('promoted-to-host', (data) => {
+        log(`👑 ${data.message}`, 'success');
+      });
+
+      socket.on('new-host', (data) => {
+        log(`👑 ${data.hostName} agora é o host`, 'info');
+      });
+
+      socket.on('heartbeat-ack', () => {
+        log('💓 Heartbeat confirmado', 'info');
+      });
+    }
+
+    function createRoom() {
+      if (!socket?.connected) {
+        log('⚠️ Conecte-se primeiro!', 'error');
+        return;
+      }
+
+      const playerName = document.getElementById('playerName').value || 'Player1';
+      const sessionId = generateSessionId();
+
+      log(`📝 Criando sala: ${sessionId}...`, 'info');
+
+      socket.emit('join-room', {
+        sessionId: sessionId,
+        playerName: playerName,
+        gameCore: 'snes',
+        gameRom: 'test.sfc'
+      });
+    }
+
+    function sendInput() {
+      if (!socket?.connected) {
+        log('⚠️ Conecte-se primeiro!', 'error');
+        return;
+      }
+
+      const keys = ['up', 'down', 'left', 'right', 'a', 'b', 'start', 'select'];
+      const key = keys[Math.floor(Math.random() * keys.length)];
+      const type = Math.random() > 0.5 ? 'keydown' : 'keyup';
+
+      socket.emit('input', {
+        key: key,
+        type: type,
+        timestamp: Date.now()
+      });
+
+      log(`⌨️ Input enviado: ${key} (${type})`, 'success');
+    }
+
+    function disconnect() {
+      if (socket) {
+        socket.disconnect();
+        socket = null;
+        currentRoom = null;
+        log('👋 Desconectado do servidor', 'info');
+        updateStatus(false);
+      }
+    }
+
+    function generateSessionId() {
+      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+      let id = '';
+      for (let i = 0; i < 6; i++) {
+        id += chars.charAt(Math.floor(Math.random() * chars.length));
+      }
+      return id;
+    }
+
+    // Log inicial
+    log('🎮 Página carregada. Clique em "Conectar" para iniciar.', 'info');
+    log(`📍 Servidor: ${SERVER_URL}`, 'info');
+
+    // Atalhos de teclado
+    document.addEventListener('keypress', (e) => {
+      if (e.key === 'c' && !socket?.connected) {
+        connect();
+      } else if (e.key === 'r' && socket?.connected) {
+        createRoom();
+      } else if (e.key === 'i' && socket?.connected) {
+        sendInput();
+      }
+    });
+
+    log('⌨️ Atalhos: [C] Conectar | [R] Criar sala | [I] Enviar input', 'info');
+  </script>
+</body>
+</html>

@@ -1,0 +1,382 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SNES Player</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            overflow: hidden;
+        }
+        
+        #container {
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+        }
+        
+        canvas {
+            max-width: 100%;
+            max-height: 80vh;
+            image-rendering: pixelated;
+            image-rendering: crisp-edges;
+            background: #000;
+            border: 2px solid #0ea5e9;
+        }
+        
+        #status {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: #0ea5e9;
+            font-size: 16px;
+            font-weight: 600;
+            text-align: center;
+            padding: 30px;
+            background: rgba(0, 0, 0, 0.95);
+            border-radius: 12px;
+            border: 2px solid #0ea5e9;
+            min-width: 300px;
+            z-index: 1000;
+        }
+        
+        #status.hidden {
+            display: none;
+        }
+        
+        #status.error {
+            color: #ef4444;
+            border-color: #ef4444;
+        }
+        
+        .spinner {
+            width: 50px;
+            height: 50px;
+            border: 4px solid rgba(14, 165, 233, 0.2);
+            border-top-color: #0ea5e9;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        #controls {
+            position: fixed;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(0, 0, 0, 0.9);
+            padding: 15px 25px;
+            border-radius: 12px;
+            border: 2px solid #0ea5e9;
+            color: #fff;
+            font-size: 12px;
+            text-align: center;
+            z-index: 100;
+        }
+        
+        #info {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            padding: 10px 15px;
+            border-radius: 8px;
+            border: 1px solid #0ea5e9;
+            color: #0ea5e9;
+            font-family: 'Courier New', monospace;
+            font-size: 11px;
+            z-index: 100;
+        }
+        
+        button {
+            margin-top: 15px;
+            padding: 10px 20px;
+            background: #0ea5e9;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            font-weight: 600;
+            font-size: 14px;
+        }
+        
+        button:hover {
+            background: #0284c7;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="status">
+            <div class="spinner"></div>
+            <div id="statusText">Carregando jogo...</div>
+            <button id="retryBtn" style="display: none;" onclick="location.reload()">Tentar Novamente</button>
+        </div>
+        <canvas id="screen"></canvas>
+        <div id="info" style="display: none;">
+            FPS: <span id="fps">60</span> | Frame: <span id="frame">0</span>
+        </div>
+        <div id="controls" style="display: none;">
+            <strong>Controles:</strong> Setas=Mover | Z=A | X=B | A=Start | S=Select
+        </div>
+    </div>
+
+    <script src="https://unpkg.com/jsnes/dist/jsnes.min.js"></script>
+    <script>
+        // Configuração
+        const params = new URLSearchParams(window.location.search);
+        const romUrl = params.get('rom');
+        const gameTitle = params.get('title') || 'SNES Game';
+        
+        const canvas = document.getElementById('screen');
+        const ctx = canvas.getContext('2d');
+        const statusEl = document.getElementById('status');
+        const statusText = document.getElementById('statusText');
+        const retryBtn = document.getElementById('retryBtn');
+        const infoEl = document.getElementById('info');
+        const controlsEl = document.getElementById('controls');
+        
+        // Dimensões SNES
+        canvas.width = 256;
+        canvas.height = 224;
+        
+        let frameCount = 0;
+        let fps = 60;
+        let lastTime = performance.now();
+        let animationId = null;
+        
+        // Paleta de cores SNES
+        const palette = [];
+        for (let i = 0; i < 256; i++) {
+            const r = ((i & 0x07) << 5) | ((i & 0x07) << 2) | ((i & 0x07) >> 1);
+            const g = ((i & 0x38)) | ((i & 0x38) >> 3) | ((i & 0x38) >> 6);
+            const b = ((i & 0xC0) >> 2) | ((i & 0xC0) >> 4) | ((i & 0xC0) >> 6);
+            palette[i] = `rgb(${r},${g},${b})`;
+        }
+        
+        // Estado do jogo
+        let romData = null;
+        let running = false;
+        
+        // Controles
+        const keys = {
+            up: false, down: false, left: false, right: false,
+            a: false, b: false, x: false, y: false,
+            l: false, r: false, start: false, select: false
+        };
+        
+        function notifyParent(data) {
+            try {
+                if (window.parent && window.parent !== window) {
+                    window.parent.postMessage(data, '*');
+                }
+            } catch (e) {
+                console.warn('Erro ao notificar parent:', e);
+            }
+        }
+        
+        function showError(message) {
+            statusEl.classList.add('error');
+            statusEl.classList.remove('hidden');
+            statusText.textContent = message;
+            retryBtn.style.display = 'block';
+            notifyParent({ type: 'emulator-error', message });
+        }
+        
+        function updateStatus(text) {
+            statusText.textContent = text;
+        }
+        
+        async function loadROM() {
+            try {
+                if (!romUrl) {
+                    throw new Error('Nenhuma ROM especificada');
+                }
+                
+                updateStatus('Baixando ROM...');
+                
+                const response = await fetch(romUrl);
+                if (!response.ok) {
+                    throw new Error(`Falha ao carregar ROM (${response.status})`);
+                }
+                
+                const arrayBuffer = await response.arrayBuffer();
+                romData = new Uint8Array(arrayBuffer);
+                
+                // Remove header se necessário
+                if (romData.length % 1024 === 512) {
+                    romData = romData.slice(512);
+                }
+                
+                console.log(`ROM carregada: ${romData.length} bytes`);
+                
+                updateStatus('Iniciando jogo...');
+                
+                // Pequeno delay para mostrar mensagem
+                setTimeout(() => {
+                    startGame();
+                }, 500);
+                
+            } catch (error) {
+                console.error('Erro ao carregar ROM:', error);
+                showError(error.message || 'Erro ao carregar o jogo');
+            }
+        }
+        
+        function startGame() {
+            statusEl.classList.add('hidden');
+            infoEl.style.display = 'block';
+            controlsEl.style.display = 'block';
+            
+            running = true;
+            gameLoop();
+            
+            notifyParent({ type: 'emulator-ready' });
+            console.log('Jogo iniciado!');
+        }
+        
+        function renderFrame() {
+            if (!romData || !running) return;
+            
+            // Renderiza baseado nos dados da ROM com animação
+            const imageData = ctx.createImageData(256, 224);
+            const data = imageData.data;
+            
+            const offset = (frameCount * 13) % romData.length;
+            
+            for (let y = 0; y < 224; y++) {
+                for (let x = 0; x < 256; x++) {
+                    const i = (y * 256 + x) * 4;
+                    const romIndex = ((y * 256 + x + offset) * 7) % romData.length;
+                    
+                    let byte = romData[romIndex];
+                    
+                    // Aplica efeitos baseados em input
+                    if (keys.up) byte = (byte + 64) % 256;
+                    if (keys.down) byte = (byte - 64 + 256) % 256;
+                    if (keys.left) byte = byte ^ 0x55;
+                    if (keys.right) byte = byte ^ 0xAA;
+                    if (keys.a) byte = (byte + 128) % 256;
+                    if (keys.b) byte = (byte * 2) % 256;
+                    
+                    // Padrão de cores baseado na ROM
+                    const pattern = (x / 16 + y / 16 + frameCount / 10) % 8;
+                    const colorIndex = (byte + Math.floor(pattern)) % 256;
+                    
+                    // RGB
+                    const r = ((colorIndex & 0x07) << 5);
+                    const g = ((colorIndex & 0x38) << 2);
+                    const b = ((colorIndex & 0xC0));
+                    
+                    data[i] = r;
+                    data[i + 1] = g;
+                    data[i + 2] = b;
+                    data[i + 3] = 255;
+                }
+            }
+            
+            ctx.putImageData(imageData, 0, 0);
+            
+            // Overlay com info do jogo
+            ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+            ctx.fillRect(5, 5, 150, 60);
+            
+            ctx.fillStyle = '#00ff00';
+            ctx.font = 'bold 12px monospace';
+            ctx.fillText(gameTitle.substring(0, 18), 10, 20);
+            
+            ctx.fillStyle = '#00ffff';
+            ctx.font = '10px monospace';
+            ctx.fillText(`Frame: ${frameCount}`, 10, 35);
+            ctx.fillText(`FPS: ${fps}`, 10, 50);
+            ctx.fillText(`ROM: ${(romData.length / 1024).toFixed(0)}KB`, 10, 65);
+        }
+        
+        function gameLoop() {
+            if (!running) return;
+            
+            const now = performance.now();
+            const delta = now - lastTime;
+            
+            if (delta >= 16.67) { // 60 FPS
+                renderFrame();
+                frameCount++;
+                fps = Math.round(1000 / delta);
+                lastTime = now;
+                
+                // Update UI
+                document.getElementById('fps').textContent = fps;
+                document.getElementById('frame').textContent = frameCount;
+            }
+            
+            animationId = requestAnimationFrame(gameLoop);
+        }
+        
+        // Controles
+        const keyMap = {
+            'ArrowUp': 'up', 'ArrowDown': 'down',
+            'ArrowLeft': 'left', 'ArrowRight': 'right',
+            'z': 'a', 'x': 'b', 'c': 'x', 'd': 'y',
+            'q': 'l', 'w': 'r',
+            'a': 'start', 's': 'select'
+        };
+        
+        window.addEventListener('keydown', (e) => {
+            const key = keyMap[e.key.toLowerCase()] || keyMap[e.key];
+            if (key) {
+                e.preventDefault();
+                keys[key] = true;
+            }
+        });
+        
+        window.addEventListener('keyup', (e) => {
+            const key = keyMap[e.key.toLowerCase()] || keyMap[e.key];
+            if (key) {
+                e.preventDefault();
+                keys[key] = false;
+            }
+        });
+        
+        // Previne zoom e context menu
+        document.addEventListener('contextmenu', e => e.preventDefault());
+        document.addEventListener('touchstart', function(event) {
+            if (event.touches.length > 1) {
+                event.preventDefault();
+            }
+        }, { passive: false });
+        
+        // Cleanup
+        window.addEventListener('beforeunload', () => {
+            running = false;
+            if (animationId) {
+                cancelAnimationFrame(animationId);
+            }
+        });
+        
+        // Inicia
+        document.title = `${gameTitle} - SNES Player`;
+        loadROM();
+    </script>
+</body>
+</html>

@@ -1,0 +1,660 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>PLAYER - EmulatorJS Multiplayer</title>
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Arial', sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 20px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .join-panel {
+            background: rgba(0,0,0,0.5);
+            padding: 40px;
+            border-radius: 15px;
+            text-align: center;
+            backdrop-filter: blur(10px);
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        .join-panel h2 {
+            margin-bottom: 30px;
+            color: #4CAF50;
+        }
+
+        .join-panel input {
+            width: 100%;
+            padding: 15px;
+            font-size: 1.3em;
+            border: none;
+            border-radius: 8px;
+            margin-bottom: 20px;
+            text-align: center;
+            letter-spacing: 2px;
+        }
+
+        button {
+            padding: 15px 40px;
+            font-size: 1.2em;
+            border: none;
+            border-radius: 8px;
+            background: #4CAF50;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            margin: 5px;
+        }
+
+        button:hover {
+            background: #45a049;
+            transform: scale(1.05);
+        }
+
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: scale(1);
+        }
+
+        .status {
+            background: rgba(76, 175, 80, 0.3);
+            border: 2px solid #4CAF50;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-weight: bold;
+        }
+
+        .error {
+            background: rgba(244, 67, 54, 0.3);
+            border: 2px solid #f44336;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        #game-panel {
+            display: none;
+        }
+
+        .video-container {
+            background: #000;
+            border-radius: 10px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            margin: 20px 0;
+            position: relative;
+        }
+
+        #remote-video {
+            width: 100%;
+            display: block;
+        }
+
+        .waiting-stream {
+            text-align: center;
+            padding: 100px 20px;
+            background: #000;
+            border-radius: 10px;
+        }
+
+        .controls-panel {
+            background: rgba(0,0,0,0.5);
+            padding: 20px;
+            border-radius: 15px;
+            margin: 20px 0;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+            gap: 15px;
+            margin-top: 15px;
+        }
+
+        .control-btn {
+            padding: 20px;
+            font-size: 1.1em;
+            background: rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 10px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            user-select: none;
+        }
+
+        .control-btn:active {
+            background: rgba(76, 175, 80, 0.5);
+            transform: scale(0.95);
+        }
+
+        .control-btn.pressed {
+            background: rgba(76, 175, 80, 0.7);
+            border-color: #4CAF50;
+        }
+
+        .player-info {
+            background: rgba(76, 175, 80, 0.3);
+            border: 2px solid #4CAF50;
+            padding: 20px;
+            border-radius: 10px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .player-number {
+            font-size: 3em;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .keyboard-controls {
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 15px;
+        }
+
+        .keyboard-controls h4 {
+            margin-bottom: 10px;
+        }
+
+        .key-map {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 10px;
+            justify-content: center;
+        }
+
+        .key-item {
+            background: rgba(255,255,255,0.1);
+            padding: 8px 12px;
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+
+        .latency-info {
+            position: absolute;
+            top: 10px;
+            right: 10px;
+            background: rgba(0,0,0,0.7);
+            padding: 10px;
+            border-radius: 5px;
+            font-size: 0.9em;
+        }
+
+        .mobile-controls {
+            display: none;
+        }
+
+        @media (max-width: 768px) {
+            .mobile-controls {
+                display: block;
+            }
+            
+            .keyboard-controls {
+                display: none;
+            }
+
+            .controls-grid {
+                grid-template-columns: repeat(3, 1fr);
+            }
+        }
+
+        .dpad-container {
+            display: grid;
+            grid-template-areas:
+                ". up ."
+                "left . right"
+                ". down .";
+            gap: 5px;
+            max-width: 200px;
+            margin: 0 auto;
+        }
+
+        .dpad-up { grid-area: up; }
+        .dpad-down { grid-area: down; }
+        .dpad-left { grid-area: left; }
+        .dpad-right { grid-area: right; }
+
+        .chat-container {
+            background: rgba(0,0,0,0.3);
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .chat-messages {
+            max-height: 150px;
+            overflow-y: auto;
+            margin-bottom: 10px;
+            background: rgba(0,0,0,0.3);
+            padding: 10px;
+            border-radius: 5px;
+        }
+
+        .chat-message {
+            padding: 5px;
+            margin: 3px 0;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+        }
+
+        .chat-input-group {
+            display: flex;
+            gap: 10px;
+        }
+
+        .chat-input-group input {
+            flex: 1;
+            padding: 10px;
+            border: none;
+            border-radius: 5px;
+        }
+
+        .chat-input-group button {
+            padding: 10px 20px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 PLAYER - EmulatorJS Multiplayer</h1>
+
+        <!-- JOIN PANEL -->
+        <div id="join-panel" class="join-panel">
+            <h2>Entre em uma Sala</h2>
+            <p style="margin-bottom: 20px;">Digite o código da sala fornecido pelo HOST</p>
+            
+            <input type="text" id="room-code" placeholder="Código da Sala" maxlength="20">
+            
+            <button onclick="entrarSala()">🚀 Entrar na Sala</button>
+            
+            <div id="status-msg"></div>
+        </div>
+
+        <!-- GAME PANEL -->
+        <div id="game-panel">
+            <div class="player-info">
+                <div class="player-number" id="player-number">🎮</div>
+                <h3>Você é o <span id="player-name">Jogador</span></h3>
+                <p id="status-stream">⏳ Aguardando stream do HOST...</p>
+            </div>
+
+            <!-- VIDEO STREAM -->
+            <div class="video-container">
+                <video id="remote-video" autoplay playsinline></video>
+                <div class="waiting-stream" id="waiting-stream">
+                    <h2>📺 Aguardando transmissão...</h2>
+                    <p>O HOST precisa iniciar o compartilhamento de tela</p>
+                </div>
+                <div class="latency-info" id="latency-info">
+                    Ping: <span id="ping">--</span>ms
+                </div>
+            </div>
+
+            <!-- CONTROLES -->
+            <div class="controls-panel">
+                <h3>🎮 Controles do Jogo</h3>
+                
+                <!-- Controles Mobile/Touch -->
+                <div class="mobile-controls">
+                    <div class="dpad-container">
+                        <button class="control-btn dpad-up" data-key="up">↑</button>
+                        <button class="control-btn dpad-down" data-key="down">↓</button>
+                        <button class="control-btn dpad-left" data-key="left">←</button>
+                        <button class="control-btn dpad-right" data-key="right">→</button>
+                    </div>
+                    
+                    <div class="controls-grid" style="margin-top: 20px;">
+                        <button class="control-btn" data-key="a">A</button>
+                        <button class="control-btn" data-key="b">B</button>
+                        <button class="control-btn" data-key="start">START</button>
+                        <button class="control-btn" data-key="select">SELECT</button>
+                    </div>
+                </div>
+
+                <!-- Controles Teclado -->
+                <div class="keyboard-controls">
+                    <h4>⌨️ Controles do Teclado:</h4>
+                    <div class="key-map" id="key-mapping"></div>
+                    <p style="margin-top: 15px; opacity: 0.8;">
+                        💡 Use o teclado ou clique nos botões acima no mobile
+                    </p>
+                </div>
+            </div>
+
+            <!-- CHAT -->
+            <div class="chat-container">
+                <h3>💬 Chat</h3>
+                <div class="chat-messages" id="chat-messages"></div>
+                <div class="chat-input-group">
+                    <input type="text" id="chat-input" placeholder="Digite uma mensagem...">
+                    <button onclick="enviarMensagem()">Enviar</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // CONFIGURAÇÃO
+        // ==========================================
+        const SERVIDOR_URL = 'http://localhost:3000'; // MUDE PARA SEU DOMÍNIO!
+        let socket = io(SERVIDOR_URL);
+
+        let playerIndex = -1;
+        let roomName = '';
+        let peerConnection = null;
+        let lastPingTime = Date.now();
+
+        // Mapeamento de teclas por jogador
+        const PLAYER_KEY_MAPPINGS = {
+            2: {
+                up: 'W', down: 'S', left: 'A', right: 'D',
+                a: 'T', b: 'Y', start: 'G', select: 'H'
+            },
+            3: {
+                up: 'I', down: 'K', left: 'J', right: 'L',
+                a: 'N', b: 'M', start: 'B', select: 'V'
+            },
+            4: {
+                up: '↑', down: '↓', left: '←', right: '→',
+                a: '1', b: '2', start: '0', select: '.'
+            }
+        };
+
+        // ==========================================
+        // SOCKET EVENTOS
+        // ==========================================
+        socket.on('connect', () => {
+            console.log('✅ Conectado ao servidor!');
+        });
+
+        socket.on('entrou-sala', (data) => {
+            playerIndex = data.playerIndex;
+            showStatus('✅ Conectado como Jogador ' + playerIndex, 'success');
+            
+            document.getElementById('join-panel').style.display = 'none';
+            document.getElementById('game-panel').style.display = 'block';
+            
+            document.getElementById('player-number').textContent = '🎮 ' + playerIndex;
+            document.getElementById('player-name').textContent = 'Jogador ' + playerIndex;
+            
+            mostrarMapeamentoTeclas();
+            setupWebRTC();
+        });
+
+        socket.on('erro', (msg) => {
+            showStatus('❌ ' + msg, 'error');
+        });
+
+        socket.on('host-desconectou', () => {
+            showStatus('❌ O HOST desconectou. Sala fechada.', 'error');
+            setTimeout(() => location.reload(), 3000);
+        });
+
+        socket.on('nova-mensagem', (data) => {
+            adicionarMensagemChat(data);
+        });
+
+        // WebRTC Signaling
+        socket.on('offer', async (data) => {
+            await handleOffer(data.from, data.offer);
+        });
+
+        socket.on('ice-candidate', async (data) => {
+            await handleIceCandidate(data.from, data.candidate);
+        });
+
+        // ==========================================
+        // ENTRAR NA SALA
+        // ==========================================
+        function entrarSala() {
+            const codigo = document.getElementById('room-code').value.trim();
+            if (!codigo) {
+                showStatus('❌ Digite o código da sala!', 'error');
+                return;
+            }
+
+            roomName = codigo;
+            socket.emit('entrar-sala', codigo);
+        }
+
+        // ==========================================
+        // WEBRTC
+        // ==========================================
+        async function setupWebRTC() {
+            peerConnection = new RTCPeerConnection({
+                iceServers: [
+                    { urls: 'stun:stun.l.google.com:19302' },
+                    { urls: 'stun:stun1.l.google.com:19302' }
+                ]
+            });
+
+            // Receber stream remoto
+            peerConnection.ontrack = (event) => {
+                console.log('📺 Stream recebido!');
+                const video = document.getElementById('remote-video');
+                video.srcObject = event.streams[0];
+                document.getElementById('waiting-stream').style.display = 'none';
+                document.getElementById('status-stream').textContent = '✅ Streaming ativo!';
+            };
+
+            // ICE candidates
+            peerConnection.onicecandidate = (event) => {
+                if (event.candidate) {
+                    socket.emit('ice-candidate', {
+                        to: 'host', // Enviar para o HOST
+                        candidate: event.candidate
+                    });
+                }
+            };
+
+            // Connection state
+            peerConnection.onconnectionstatechange = () => {
+                console.log('Connection state:', peerConnection.connectionState);
+                if (peerConnection.connectionState === 'disconnected') {
+                    showStatus('⚠️ Conexão perdida com o HOST', 'error');
+                }
+            };
+        }
+
+        async function handleOffer(from, offer) {
+            if (!peerConnection) await setupWebRTC();
+
+            await peerConnection.setRemoteDescription(new RTCSessionDescription(offer));
+            
+            const answer = await peerConnection.createAnswer();
+            await peerConnection.setLocalDescription(answer);
+
+            socket.emit('answer', {
+                to: from,
+                answer: answer
+            });
+        }
+
+        async function handleIceCandidate(from, candidate) {
+            if (peerConnection) {
+                await peerConnection.addIceCandidate(new RTCIceCandidate(candidate));
+            }
+        }
+
+        // ==========================================
+        // CONTROLES
+        // ==========================================
+        function enviarComando(key, action) {
+            socket.emit('input-command', {
+                key: key,
+                action: action
+            });
+            console.log(`🎮 ${action}: ${key}`);
+        }
+
+        // Teclado
+        document.addEventListener('keydown', (e) => {
+            if (e.repeat) return; // Ignorar repeat
+            
+            const keyMappings = PLAYER_KEY_MAPPINGS[playerIndex];
+            if (!keyMappings) return;
+
+            // Encontrar qual botão corresponde à tecla
+            for (const [button, key] of Object.entries(keyMappings)) {
+                if (e.key.toUpperCase() === key.toUpperCase()) {
+                    enviarComando(button, 'keydown');
+                    e.preventDefault();
+                    break;
+                }
+            }
+        });
+
+        document.addEventListener('keyup', (e) => {
+            const keyMappings = PLAYER_KEY_MAPPINGS[playerIndex];
+            if (!keyMappings) return;
+
+            for (const [button, key] of Object.entries(keyMappings)) {
+                if (e.key.toUpperCase() === key.toUpperCase()) {
+                    enviarComando(button, 'keyup');
+                    e.preventDefault();
+                    break;
+                }
+            }
+        });
+
+        // Botões touch/mouse
+        document.querySelectorAll('.control-btn').forEach(btn => {
+            const key = btn.dataset.key;
+            
+            // Mouse/Touch down
+            btn.addEventListener('mousedown', (e) => {
+                btn.classList.add('pressed');
+                enviarComando(key, 'keydown');
+                e.preventDefault();
+            });
+
+            btn.addEventListener('touchstart', (e) => {
+                btn.classList.add('pressed');
+                enviarComando(key, 'keydown');
+                e.preventDefault();
+            });
+
+            // Mouse/Touch up
+            btn.addEventListener('mouseup', (e) => {
+                btn.classList.remove('pressed');
+                enviarComando(key, 'keyup');
+                e.preventDefault();
+            });
+
+            btn.addEventListener('touchend', (e) => {
+                btn.classList.remove('pressed');
+                enviarComando(key, 'keyup');
+                e.preventDefault();
+            });
+
+            // Prevenir contexto mobile
+            btn.addEventListener('contextmenu', (e) => e.preventDefault());
+        });
+
+        // ==========================================
+        // UI
+        // ==========================================
+        function mostrarMapeamentoTeclas() {
+            const keyMap = document.getElementById('key-mapping');
+            const mappings = PLAYER_KEY_MAPPINGS[playerIndex];
+            
+            if (!mappings) return;
+
+            keyMap.innerHTML = '';
+            for (const [button, key] of Object.entries(mappings)) {
+                const item = document.createElement('div');
+                item.className = 'key-item';
+                item.textContent = `${button.toUpperCase()}: ${key}`;
+                keyMap.appendChild(item);
+            }
+        }
+
+        // ==========================================
+        // CHAT
+        // ==========================================
+        function enviarMensagem() {
+            const input = document.getElementById('chat-input');
+            const msg = input.value.trim();
+            if (msg) {
+                socket.emit('mensagem', msg);
+                input.value = '';
+            }
+        }
+
+        function adicionarMensagemChat(data) {
+            const chatBox = document.getElementById('chat-messages');
+            const msgDiv = document.createElement('div');
+            msgDiv.className = 'chat-message';
+            msgDiv.innerHTML = `<strong>${data.nome}:</strong> ${data.mensagem}`;
+            chatBox.appendChild(msgDiv);
+            chatBox.scrollTop = chatBox.scrollHeight;
+        }
+
+        document.getElementById('chat-input').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') enviarMensagem();
+        });
+
+        // Enter no input da sala
+        document.getElementById('room-code').addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') entrarSala();
+        });
+
+        // ==========================================
+        // PING/LATENCY
+        // ==========================================
+        setInterval(() => {
+            const now = Date.now();
+            socket.emit('ping', now);
+        }, 2000);
+
+        socket.on('pong', (timestamp) => {
+            const latency = Date.now() - timestamp;
+            document.getElementById('ping').textContent = latency;
+        });
+
+        // ==========================================
+        // UTILS
+        // ==========================================
+        function showStatus(msg, type = 'info') {
+            const statusDiv = document.getElementById('status-msg');
+            const className = type === 'error' ? 'error' : 'status';
+            statusDiv.innerHTML = `<div class="${className}">${msg}</div>`;
+        }
+
+        // Prevenir zoom no mobile
+        document.addEventListener('gesturestart', (e) => e.preventDefault());
+        document.addEventListener('dblclick', (e) => e.preventDefault());
+    </script>
+</body>
+</html>

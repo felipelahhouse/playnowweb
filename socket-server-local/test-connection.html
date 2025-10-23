@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Socket.IO Connection Test</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        
+        .container {
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            max-width: 600px;
+            width: 100%;
+            padding: 40px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        
+        .status-section {
+            background: #f5f5f5;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        
+        .status-item {
+            display: flex;
+            align-items: center;
+            margin-bottom: 12px;
+            font-size: 14px;
+        }
+        
+        .status-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .status-icon {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-right: 12px;
+            font-weight: bold;
+            color: white;
+            font-size: 12px;
+        }
+        
+        .status-icon.connected {
+            background: #10b981;
+        }
+        
+        .status-icon.disconnected {
+            background: #ef4444;
+        }
+        
+        .status-icon.pending {
+            background: #f59e0b;
+        }
+        
+        .status-label {
+            flex: 1;
+        }
+        
+        .status-value {
+            color: #667eea;
+            font-weight: 600;
+            font-family: monospace;
+        }
+        
+        .button-group {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+            margin-bottom: 20px;
+        }
+        
+        button {
+            padding: 12px 20px;
+            border: none;
+            border-radius: 6px;
+            font-size: 14px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        
+        .btn-primary {
+            background: #667eea;
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: #5568d3;
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        
+        .btn-secondary {
+            background: #e5e7eb;
+            color: #333;
+        }
+        
+        .btn-secondary:hover {
+            background: #d1d5db;
+        }
+        
+        button:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .input-group {
+            margin-bottom: 15px;
+        }
+        
+        label {
+            display: block;
+            color: #333;
+            font-size: 13px;
+            font-weight: 600;
+            margin-bottom: 6px;
+        }
+        
+        input, select {
+            width: 100%;
+            padding: 10px;
+            border: 1px solid #ddd;
+            border-radius: 6px;
+            font-size: 14px;
+            font-family: monospace;
+        }
+        
+        input:focus, select:focus {
+            outline: none;
+            border-color: #667eea;
+            box-shadow: 0 0 0 3px rgba(102, 126, 234, 0.1);
+        }
+        
+        .log-container {
+            background: #1e1e1e;
+            color: #10b981;
+            padding: 15px;
+            border-radius: 6px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-bottom: 20px;
+        }
+        
+        .log-entry {
+            margin-bottom: 6px;
+            padding: 4px 0;
+            border-bottom: 1px solid #333;
+        }
+        
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+        
+        .log-time {
+            color: #666;
+            margin-right: 8px;
+        }
+        
+        .log-success { color: #10b981; }
+        .log-error { color: #ef4444; }
+        .log-warning { color: #f59e0b; }
+        .log-info { color: #0ea5e9; }
+        
+        .event-list {
+            list-style: none;
+        }
+        
+        .event-list li {
+            padding: 8px 12px;
+            background: #f5f5f5;
+            margin-bottom: 6px;
+            border-radius: 4px;
+            border-left: 3px solid #667eea;
+            font-size: 13px;
+        }
+        
+        .event-list li.received {
+            border-left-color: #10b981;
+            background: #f0fdf4;
+        }
+        
+        .event-list li.sent {
+            border-left-color: #0ea5e9;
+            background: #f0f9ff;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔌 Socket.IO Connection Test</h1>
+        <p class="subtitle">PlayNowEmulator - Local Development Server</p>
+        
+        <!-- Status Section -->
+        <div class="status-section">
+            <div class="status-item">
+                <div class="status-icon disconnected" id="connectionIcon">✖</div>
+                <div class="status-label">Connection Status</div>
+                <div class="status-value" id="connectionStatus">Disconnected</div>
+            </div>
+            <div class="status-item">
+                <div class="status-icon" style="background: #667eea;">ID</div>
+                <div class="status-label">Socket ID</div>
+                <div class="status-value" id="socketId">Not connected</div>
+            </div>
+            <div class="status-item">
+                <div class="status-icon" style="background: #667eea;">📊</div>
+                <div class="status-label">Events Received</div>
+                <div class="status-value" id="eventsReceived">0</div>
+            </div>
+        </div>
+        
+        <!-- Control Section -->
+        <div class="input-group">
+            <label for="serverUrl">Server URL:</label>
+            <input type="text" id="serverUrl" value="http://localhost:5000" placeholder="http://localhost:5000">
+        </div>
+        
+        <div class="button-group">
+            <button class="btn-primary" onclick="connect()">Connect</button>
+            <button class="btn-secondary" onclick="disconnect()">Disconnect</button>
+        </div>
+        
+        <div class="input-group">
+            <label>Test Actions:</label>
+            <div class="button-group" style="grid-template-columns: 1fr;">
+                <button class="btn-secondary" onclick="testHeartbeat()" id="heartbeatBtn" disabled>Send Heartbeat</button>
+                <button class="btn-secondary" onclick="testCheckRoom()" id="checkRoomBtn" disabled>Check Room (ABC123)</button>
+                <button class="btn-secondary" onclick="testCreateRoom()" id="createRoomBtn" disabled>Create Test Room</button>
+            </div>
+        </div>
+        
+        <!-- Event Log -->
+        <h3 style="color: #333; margin-bottom: 10px; font-size: 16px;">📋 Event Log</h3>
+        <div class="log-container" id="logContainer">
+            <div class="log-entry log-info">
+                <span class="log-time">00:00:00</span>
+                <span>Waiting for connection...</span>
+            </div>
+        </div>
+        
+        <!-- Events Received -->
+        <h3 style="color: #333; margin-bottom: 10px; font-size: 16px;">📡 Socket Events</h3>
+        <ul class="event-list" id="eventList"></ul>
+    </div>
+    
+    <script>
+        let socket = null;
+        let eventsCount = 0;
+        
+        const serverUrlInput = document.getElementById('serverUrl');
+        const connectionStatus = document.getElementById('connectionStatus');
+        const connectionIcon = document.getElementById('connectionIcon');
+        const socketIdDisplay = document.getElementById('socketId');
+        const eventsReceivedDisplay = document.getElementById('eventsReceived');
+        const logContainer = document.getElementById('logContainer');
+        const eventList = document.getElementById('eventList');
+        const buttons = {
+            heartbeat: document.getElementById('heartbeatBtn'),
+            checkRoom: document.getElementById('checkRoomBtn'),
+            createRoom: document.getElementById('createRoomBtn')
+        };
+        
+        function log(message, type = 'info') {
+            const time = new Date().toLocaleTimeString();
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            entry.innerHTML = `<span class="log-time">${time}</span><span>${message}</span>`;
+            logContainer.appendChild(entry);
+            logContainer.scrollTop = logContainer.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+        
+        function addEvent(event, data, type = 'received') {
+            const li = document.createElement('li');
+            li.className = type;
+            li.textContent = `${type === 'sent' ? '📤' : '📥'} ${event}: ${JSON.stringify(data).substring(0, 50)}...`;
+            eventList.insertBefore(li, eventList.firstChild);
+            
+            // Keep only last 20 events
+            while (eventList.children.length > 20) {
+                eventList.removeChild(eventList.lastChild);
+            }
+        }
+        
+        function updateStatus(connected) {
+            if (connected) {
+                connectionStatus.textContent = 'Connected ✓';
+                connectionIcon.className = 'status-icon connected';
+                connectionIcon.textContent = '✓';
+                socketIdDisplay.textContent = socket.id;
+                
+                Object.values(buttons).forEach(btn => btn.disabled = false);
+                serverUrlInput.disabled = true;
+                
+                log('✅ Connected to Socket.IO server', 'success');
+            } else {
+                connectionStatus.textContent = 'Disconnected ✗';
+                connectionIcon.className = 'status-icon disconnected';
+                connectionIcon.textContent = '✖';
+                socketIdDisplay.textContent = 'Not connected';
+                
+                Object.values(buttons).forEach(btn => btn.disabled = true);
+                serverUrlInput.disabled = false;
+                
+                log('❌ Disconnected from server', 'error');
+            }
+        }
+        
+        function connect() {
+            const url = serverUrlInput.value;
+            
+            if (!url) {
+                log('⚠️ Server URL is required', 'warning');
+                return;
+            }
+            
+            if (socket?.connected) {
+                log('⚠️ Already connected', 'warning');
+                return;
+            }
+            
+            log(`🔌 Connecting to ${url}...`, 'info');
+            
+            socket = io(url, {
+                transports: ['websocket', 'polling'],
+                reconnection: true,
+                reconnectionDelay: 1000,
+                reconnectionDelayMax: 5000
+            });
+            
+            socket.on('connect', () => {
+                log('✅ Connected to server', 'success');
+                updateStatus(true);
+                addEvent('connect', { socketId: socket.id }, 'received');
+            });
+            
+            socket.on('disconnect', (reason) => {
+                log(`👋 Disconnected (${reason})`, 'warning');
+                updateStatus(false);
+                addEvent('disconnect', { reason }, 'received');
+            });
+            
+            socket.on('connect_error', (error) => {
+                log(`❌ Connection error: ${error.message}`, 'error');
+                addEvent('connect_error', { error: error.message }, 'received');
+            });
+            
+            socket.on('connected', (data) => {
+                log('✅ Server acknowledgement received', 'success');
+                addEvent('connected', data, 'received');
+            });
+            
+            socket.on('room-created', (data) => {
+                log(`🎮 Room created: ${data.room_code}`, 'success');
+                addEvent('room-created', data, 'received');
+            });
+            
+            socket.on('room-joined', (data) => {
+                log(`👥 Joined room: ${data.room_code}`, 'success');
+                addEvent('room-joined', data, 'received');
+            });
+            
+            socket.on('player-joined', (data) => {
+                log(`👤 Player ${data.username} joined`, 'info');
+                addEvent('player-joined', data, 'received');
+            });
+            
+            socket.on('room-status', (data) => {
+                log(`🔍 Room status: ${JSON.stringify(data)}`, 'info');
+                addEvent('room-status', data, 'received');
+            });
+            
+            socket.on('heartbeat-ack', (data) => {
+                log('💓 Heartbeat acknowledged', 'success');
+                addEvent('heartbeat-ack', data, 'received');
+            });
+            
+            socket.on('error', (data) => {
+                log(`❌ Server error: ${data.message || JSON.stringify(data)}`, 'error');
+                addEvent('error', data, 'received');
+            });
+        }
+        
+        function disconnect() {
+            if (socket) {
+                socket.disconnect();
+                socket = null;
+                updateStatus(false);
+                log('👋 Disconnected from server', 'info');
+            }
+        }
+        
+        function testHeartbeat() {
+            if (!socket?.connected) {
+                log('⚠️ Not connected', 'warning');
+                return;
+            }
+            
+            socket.emit('heartbeat');
+            log('💓 Heartbeat sent', 'info');
+            addEvent('heartbeat', {}, 'sent');
+        }
+        
+        function testCheckRoom() {
+            if (!socket?.connected) {
+                log('⚠️ Not connected', 'warning');
+                return;
+            }
+            
+            socket.emit('check-room', { roomCode: 'ABC123' });
+            log('🔍 Check room request sent', 'info');
+            addEvent('check-room', { roomCode: 'ABC123' }, 'sent');
+        }
+        
+        function testCreateRoom() {
+            if (!socket?.connected) {
+                log('⚠️ Not connected', 'warning');
+                return;
+            }
+            
+            const gameInfo = {
+                name: 'Test Game',
+                rom: 'test.snes'
+            };
+            
+            socket.emit('create-room', { 
+                username: 'TestPlayer',
+                game: gameInfo 
+            });
+            
+            log('🎮 Create room request sent', 'info');
+            addEvent('create-room', gameInfo, 'sent');
+        }
+        
+        // Auto-connect to server on page load (optional)
+        window.addEventListener('load', () => {
+            log('🚀 Socket.IO Test Console Ready', 'info');
+            // Uncomment to auto-connect:
+            // connect();
+        });
+    </script>
+</body>
+</html>

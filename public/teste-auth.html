@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de Autenticação - Debug</title>
+    <style>
+        body {
+            font-family: monospace;
+            background: #1a1a1a;
+            color: #00ff00;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .container {
+            background: #2a2a2a;
+            border: 2px solid #00ff00;
+            border-radius: 8px;
+            padding: 20px;
+            margin: 20px 0;
+        }
+        h1, h2 {
+            color: #00ffff;
+            border-bottom: 2px solid #00ff00;
+            padding-bottom: 10px;
+        }
+        .status {
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .success { background: #004400; color: #00ff00; }
+        .error { background: #440000; color: #ff0000; }
+        .warning { background: #444400; color: #ffff00; }
+        .info { background: #004444; color: #00ffff; }
+        input, button {
+            display: block;
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            background: #1a1a1a;
+            color: #00ff00;
+            border: 1px solid #00ff00;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        button {
+            cursor: pointer;
+            background: #003300;
+        }
+        button:hover {
+            background: #005500;
+        }
+        #log {
+            background: #000;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 4px;
+            max-height: 400px;
+            overflow-y: auto;
+            font-size: 12px;
+        }
+        .log-entry {
+            margin: 5px 0;
+            padding: 5px;
+            border-left: 3px solid #00ff00;
+            padding-left: 10px;
+        }
+        .log-error { border-left-color: #ff0000; color: #ff6666; }
+        .log-success { border-left-color: #00ff00; }
+        .log-info { border-left-color: #00ffff; color: #66ffff; }
+    </style>
+</head>
+<body>
+    <h1>🔐 DIAGNÓSTICO DE AUTENTICAÇÃO - SUPABASE</h1>
+    
+    <div class="container">
+        <h2>📊 Status da Conexão</h2>
+        <div id="connectionStatus" class="status info">Verificando...</div>
+        <div id="envStatus" class="status info">Verificando variáveis...</div>
+    </div>
+
+    <div class="container">
+        <h2>🧪 Teste de Criação de Conta</h2>
+        <input type="email" id="testEmail" placeholder="Email (ex: teste@exemplo.com)" value="teste@exemplo.com">
+        <input type="text" id="testUsername" placeholder="Username" value="jogador123">
+        <input type="password" id="testPassword" placeholder="Password" value="senha123">
+        <button onclick="testSignUp()">🚀 Testar Criar Conta</button>
+    </div>
+
+    <div class="container">
+        <h2>🔑 Teste de Login</h2>
+        <input type="email" id="loginEmail" placeholder="Email" value="teste@exemplo.com">
+        <input type="password" id="loginPassword" placeholder="Password" value="senha123">
+        <button onclick="testSignIn()">🔓 Testar Login</button>
+    </div>
+
+    <div class="container">
+        <h2>📋 Log de Eventos</h2>
+        <button onclick="clearLog()">🗑️ Limpar Log</button>
+        <div id="log"></div>
+    </div>
+
+    <script type="module">
+        import { createClient } from 'https://esm.sh/@supabase/supabase-js@2';
+
+        // Variáveis de ambiente
+        const supabaseUrl = 'https://ffmyoutiutemmrmvxzig.supabase.co';
+        const supabaseKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImZmbXlvdXRpdXRlbW1ybXZ4emlnIiwicm9sZSI6ImFub24iLCJpYXQiOjE3Mjc5MDgwOTcsImV4cCI6MjA0MzQ4NDA5N30.9xTaYYg2tD3DZ7pUm36Lqzm0vJ3yzDnqM8XbQs_zNXk';
+
+        // Criar cliente Supabase
+        window.supabase = createClient(supabaseUrl, supabaseKey);
+
+        // Funções de Log
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry log-${type}`;
+            const timestamp = new Date().toLocaleTimeString();
+            entry.textContent = `[${timestamp}] ${message}`;
+            logDiv.insertBefore(entry, logDiv.firstChild);
+        }
+
+        window.clearLog = function() {
+            document.getElementById('log').innerHTML = '';
+            log('Log limpo', 'info');
+        }
+
+        // Verificar conexão
+        async function checkConnection() {
+            const statusDiv = document.getElementById('connectionStatus');
+            const envDiv = document.getElementById('envStatus');
+
+            log('🔍 Verificando conexão com Supabase...', 'info');
+
+            // Verificar variáveis
+            if (supabaseUrl && supabaseKey) {
+                envDiv.className = 'status success';
+                envDiv.textContent = '✅ Variáveis de ambiente OK';
+                log('✅ URL: ' + supabaseUrl, 'success');
+                log('✅ Key: ' + supabaseKey.substring(0, 20) + '...', 'success');
+            } else {
+                envDiv.className = 'status error';
+                envDiv.textContent = '❌ Variáveis de ambiente faltando!';
+                log('❌ Variáveis de ambiente não configuradas', 'error');
+                return;
+            }
+
+            // Testar conexão
+            try {
+                const { data, error } = await supabase.from('games').select('count').limit(1);
+                if (error) throw error;
+                
+                statusDiv.className = 'status success';
+                statusDiv.textContent = '✅ Conectado ao Supabase!';
+                log('✅ Conexão com Supabase estabelecida', 'success');
+            } catch (err) {
+                statusDiv.className = 'status error';
+                statusDiv.textContent = '❌ Erro de conexão: ' + err.message;
+                log('❌ Erro de conexão: ' + err.message, 'error');
+            }
+        }
+
+        // Teste de SignUp
+        window.testSignUp = async function() {
+            const email = document.getElementById('testEmail').value;
+            const username = document.getElementById('testUsername').value;
+            const password = document.getElementById('testPassword').value;
+
+            log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+            log('🚀 INICIANDO TESTE DE CRIAR CONTA', 'info');
+            log('📧 Email: ' + email, 'info');
+            log('👤 Username: ' + username, 'info');
+            log('🔑 Password: ' + password, 'info');
+
+            try {
+                // Passo 1: Verificar se username existe
+                log('🔍 Passo 1: Verificando se username já existe...', 'info');
+                const { data: existingUsername, error: checkError } = await supabase
+                    .from('users')
+                    .select('username')
+                    .eq('username', username)
+                    .maybeSingle();
+
+                if (checkError) {
+                    log('⚠️ Erro ao verificar username: ' + checkError.message, 'error');
+                    if (checkError.code === 'PGRST116') {
+                        log('ℹ️ Tabela users não existe ainda (será criada)', 'info');
+                    }
+                } else if (existingUsername) {
+                    log('❌ Username já existe!', 'error');
+                    alert('Username já está em uso. Tente outro.');
+                    return;
+                } else {
+                    log('✅ Username disponível!', 'success');
+                }
+
+                // Passo 2: Criar conta no Supabase Auth
+                log('🔐 Passo 2: Criando usuário no Supabase Auth...', 'info');
+                const { data, error } = await supabase.auth.signUp({
+                    email: email,
+                    password: password,
+                    options: {
+                        data: {
+                            username: username
+                        }
+                    }
+                });
+
+                if (error) {
+                    log('❌ Erro ao criar usuário: ' + error.message, 'error');
+                    alert('Erro ao criar conta: ' + error.message);
+                    return;
+                }
+
+                log('✅ Usuário criado no Auth!', 'success');
+                log('🆔 User ID: ' + data.user.id, 'success');
+
+                // Passo 3: Criar perfil na tabela users
+                log('📝 Passo 3: Criando perfil na tabela users...', 'info');
+                const { error: profileError } = await supabase
+                    .from('users')
+                    .insert({
+                        id: data.user.id,
+                        email: email,
+                        username: username,
+                        is_online: true,
+                        last_seen: new Date().toISOString(),
+                        created_at: new Date().toISOString()
+                    });
+
+                if (profileError) {
+                    log('⚠️ Erro ao criar perfil: ' + profileError.message, 'error');
+                    log('ℹ️ Mas o usuário foi criado no Auth', 'info');
+                } else {
+                    log('✅ Perfil criado na tabela users!', 'success');
+                }
+
+                log('🎉 CONTA CRIADA COM SUCESSO!', 'success');
+                alert('✅ Conta criada com sucesso!\n\nEmail: ' + email + '\nUsername: ' + username);
+
+            } catch (err) {
+                log('❌ ERRO CRÍTICO: ' + err.message, 'error');
+                console.error('Erro completo:', err);
+                alert('Erro: ' + err.message);
+            }
+        }
+
+        // Teste de SignIn
+        window.testSignIn = async function() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+
+            log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+            log('🔓 INICIANDO TESTE DE LOGIN', 'info');
+            log('📧 Email: ' + email, 'info');
+
+            try {
+                log('🔐 Tentando fazer login...', 'info');
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email: email,
+                    password: password
+                });
+
+                if (error) {
+                    log('❌ Erro ao fazer login: ' + error.message, 'error');
+                    alert('Erro ao fazer login: ' + error.message);
+                    return;
+                }
+
+                log('✅ Login realizado com sucesso!', 'success');
+                log('🆔 User ID: ' + data.user.id, 'success');
+                log('📧 Email: ' + data.user.email, 'success');
+
+                // Buscar perfil
+                log('📝 Buscando perfil do usuário...', 'info');
+                const { data: profile, error: profileError } = await supabase
+                    .from('users')
+                    .select('*')
+                    .eq('id', data.user.id)
+                    .maybeSingle();
+
+                if (profileError) {
+                    log('⚠️ Erro ao buscar perfil: ' + profileError.message, 'error');
+                } else if (profile) {
+                    log('✅ Perfil encontrado!', 'success');
+                    log('👤 Username: ' + profile.username, 'success');
+                    log('🟢 Online: ' + profile.is_online, 'success');
+                } else {
+                    log('⚠️ Perfil não encontrado na tabela users', 'error');
+                }
+
+                log('🎉 LOGIN REALIZADO COM SUCESSO!', 'success');
+                alert('✅ Login realizado!\n\nEmail: ' + data.user.email);
+
+            } catch (err) {
+                log('❌ ERRO CRÍTICO: ' + err.message, 'error');
+                console.error('Erro completo:', err);
+                alert('Erro: ' + err.message);
+            }
+        }
+
+        // Executar ao carregar
+        checkConnection();
+        log('🚀 Página de diagnóstico carregada', 'success');
+    </script>
+</body>
+</html>

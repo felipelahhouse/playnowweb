@@ -1,0 +1,160 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Cache Buster - PlayNow Emulator</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      max-width: 800px;
+      margin: 50px auto;
+      padding: 20px;
+      background: #1a1a1a;
+      color: #fff;
+    }
+    .container {
+      background: #2a2a2a;
+      padding: 30px;
+      border-radius: 10px;
+      box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    }
+    h1 { color: #00d4ff; }
+    .btn {
+      background: #00d4ff;
+      color: #000;
+      border: none;
+      padding: 15px 30px;
+      font-size: 16px;
+      border-radius: 5px;
+      cursor: pointer;
+      margin: 10px 5px;
+      font-weight: bold;
+    }
+    .btn:hover {
+      background: #00b8e6;
+    }
+    .info {
+      background: #3a3a3a;
+      padding: 15px;
+      border-radius: 5px;
+      margin: 20px 0;
+    }
+    .success { color: #00ff88; }
+    .warning { color: #ffaa00; }
+    code {
+      background: #1a1a1a;
+      padding: 2px 6px;
+      border-radius: 3px;
+      color: #00d4ff;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧹 Cache Buster - PlayNow Emulator</h1>
+    
+    <div class="info">
+      <h3>📦 Versão Atual Deployada:</h3>
+      <p><strong>Build:</strong> <code id="version">Carregando...</code></p>
+      <p><strong>Data:</strong> <code id="buildDate">Carregando...</code></p>
+    </div>
+
+    <div class="info">
+      <h3>⚠️ Problema Detectado:</h3>
+      <p class="warning">
+        O navegador está usando uma versão antiga em cache.<br>
+        Erro: <code>Cannot read properties of undefined (reading 'toLowerCase')</code>
+      </p>
+    </div>
+
+    <div class="info">
+      <h3>✅ Soluções:</h3>
+      <button class="btn" onclick="hardReload()">🔄 Hard Reload (Recomendado)</button>
+      <button class="btn" onclick="clearCacheAndReload()">🗑️ Limpar Cache Total</button>
+      <button class="btn" onclick="openIncognito()">🕵️ Abrir em Anônimo</button>
+    </div>
+
+    <div class="info">
+      <h3>📝 Instruções Manuais:</h3>
+      <ol>
+        <li><strong>Windows/Linux:</strong> Pressione <code>Ctrl + Shift + R</code></li>
+        <li><strong>Mac:</strong> Pressione <code>Cmd + Shift + R</code></li>
+        <li><strong>Ou:</strong> Abra as Ferramentas do Desenvolvedor (F12)</li>
+        <li>Clique com botão direito no botão de atualizar</li>
+        <li>Selecione "Limpar cache e atualizar"</li>
+      </ol>
+    </div>
+
+    <div class="info">
+      <h3>🔍 Arquivo Correto:</h3>
+      <p class="success">
+        O arquivo correto foi deployado: <code>MultiplayerLobby.VcIG9o93.js</code>
+      </p>
+      <p class="warning">
+        Arquivo antigo (em cache): <code>MultiplayerLobby.DN1Xd_LW.js</code>
+      </p>
+    </div>
+
+    <button class="btn" onclick="window.location.href='/'">🏠 Voltar para o Site</button>
+  </div>
+
+  <script>
+    // Carregar versão atual
+    fetch('/version.json')
+      .then(r => r.json())
+      .then(data => {
+        document.getElementById('version').textContent = data.version;
+        document.getElementById('buildDate').textContent = new Date(data.buildDate).toLocaleString('pt-BR');
+      })
+      .catch(e => {
+        document.getElementById('version').textContent = 'Erro ao carregar';
+        document.getElementById('buildDate').textContent = 'N/A';
+      });
+
+    function hardReload() {
+      console.log('🔄 Fazendo hard reload...');
+      window.location.reload(true);
+    }
+
+    function clearCacheAndReload() {
+      if ('caches' in window) {
+        caches.keys().then(names => {
+          names.forEach(name => {
+            caches.delete(name);
+          });
+        });
+      }
+      console.log('🗑️ Cache limpo! Recarregando...');
+      setTimeout(() => {
+        window.location.reload(true);
+      }, 500);
+    }
+
+    function openIncognito() {
+      alert('Por favor, abra o navegador em modo anônimo/privado:\n\n' +
+            '• Chrome/Edge: Ctrl+Shift+N\n' +
+            '• Firefox: Ctrl+Shift+P\n' +
+            '• Safari: Cmd+Shift+N\n\n' +
+            'Depois acesse: https://playnowemulator.com');
+    }
+
+    // Auto-detectar e avisar sobre cache
+    setTimeout(() => {
+      const scripts = document.scripts;
+      let hasOldFile = false;
+      
+      for (let script of scripts) {
+        if (script.src.includes('MultiplayerLobby.DN1Xd_LW.js')) {
+          hasOldFile = true;
+          break;
+        }
+      }
+
+      if (hasOldFile) {
+        console.warn('⚠️ CACHE ANTIGO DETECTADO! Por favor, limpe o cache.');
+      }
+    }, 1000);
+  </script>
+</body>
+</html>

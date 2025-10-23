@@ -1,0 +1,37 @@
+{
+  "name": "playnowemulator-colyseus-server",
+  "version": "1.0.0",
+  "description": "Colyseus server for PlayNowEmulator multiplayer",
+  "main": "dist/index.js",
+  "type": "module",
+  "scripts": {
+    "dev": "ts-node src/index.ts",
+    "build": "tsc",
+    "start": "node dist/index.js",
+    "deploy": "npx @colyseus/cloud deploy",
+    "test": "echo \"Error: no test specified\" && exit 1"
+  },
+  "keywords": [
+    "colyseus",
+    "multiplayer",
+    "emulator",
+    "games"
+  ],
+  "author": "PlayNowEmulator",
+  "license": "MIT",
+  "dependencies": {
+    "colyseus": "^0.15.0",
+    "@colyseus/ws-transport": "^0.15.0",
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "typescript": "^5.2.2",
+    "ts-node": "^10.9.1",
+    "@types/node": "^20.5.0",
+    "@types/express": "^4.17.17"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

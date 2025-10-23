@@ -1,0 +1,25 @@
+{
+  "name": "playnowemulator-socketio-server",
+  "version": "1.0.0",
+  "description": "Socket.IO server for PlayNowEmulator multiplayer sync",
+  "main": "server.js",
+  "type": "module",
+  "scripts": {
+    "start": "node server.js",
+    "dev": "nodemon server.js"
+  },
+  "keywords": ["socketio", "multiplayer", "emulator", "p2p"],
+  "author": "PlayNowEmulator",
+  "license": "MIT",
+  "dependencies": {
+    "socket.io": "^4.7.2",
+    "express": "^4.18.2",
+    "cors": "^2.8.5"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.1"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}

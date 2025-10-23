@@ -1,0 +1,30 @@
+{"users": [
+{
+  "localId": "8a6a1E3HdEV69uXFYBUWvAvnf3x1",
+  "email": "test@example.com",
+  "emailVerified": false,
+  "passwordHash": "vCDXvrlnPI3+egIQXtCDDgOaisoedrXcI2u62ZDyhTvqtvS3LupyV0KeMi2+Ao78/PkbRJh9pV6TEHCjgoz8BQ==",
+  "salt": "woOcxF4JpF/rWw==",
+  "displayName": "TestUser123",
+  "lastSignedInAt": "1760047045566",
+  "createdAt": "1760047045566",
+  "providerUserInfo": []
+},
+{
+  "localId": "c9vhUdeCYKQ2UjRuwSpuw5tXsBH3",
+  "email": "felipelars45@gmail.com",
+  "emailVerified": true,
+  "displayName": "Felipe andrade",
+  "photoUrl": "https://lh3.googleusercontent.com/a/ACg8ocK98CwfbuNOP3zhqVD3ESExkwtIOB1oMFej38kJrh2uEAKKXkLJ=s96-c",
+  "lastSignedInAt": "1760047474744",
+  "createdAt": "1760045363357",
+  "providerUserInfo": [
+    {
+      "providerId": "google.com",
+      "rawId": "114407067448258676043",
+      "email": "felipelars45@gmail.com",
+      "displayName": "Felipe andrade",
+      "photoUrl": "https://lh3.googleusercontent.com/a/ACg8ocK98CwfbuNOP3zhqVD3ESExkwtIOB1oMFej38kJrh2uEAKKXkLJ=s96-c"
+    }
+  ]
+}]}

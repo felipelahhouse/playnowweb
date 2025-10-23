@@ -1,0 +1,151 @@
+═══════════════════════════════════════════════════════════════
+  🎮 EMULATORJS MULTIPLAYER - INSTRUÇÕES RÁPIDAS
+═══════════════════════════════════════════════════════════════
+
+📦 CONTEÚDO DO ZIP:
+   ✓ servidor-streaming.js
+   ✓ host.html
+   ✓ player.html
+   ✓ package-emulator.json
+   ✓ GUIA-EMULATORJS.md (guia completo)
+   ✓ README-GERAL.md (informações gerais)
+
+═══════════════════════════════════════════════════════════════
+
+🚀 INSTALAÇÃO EM 7 PASSOS:
+
+1️⃣  EXTRAIR O ZIP
+    - Extraia todos os arquivos numa pasta
+    - Exemplo: C:\emulator-multiplayer\
+
+2️⃣  RENOMEAR ARQUIVO
+    - Renomeie: package-emulator.json → package.json
+
+3️⃣  INSTALAR NODE.JS (se não tiver)
+    - Baixe em: https://nodejs.org
+    - Instale a versão LTS
+
+4️⃣  ABRIR TERMINAL/CMD
+    - Windows: Win+R → digite "cmd" → Enter
+    - Mac/Linux: Abra o Terminal
+
+5️⃣  IR ATÉ A PASTA
+    - Digite: cd C:\caminho\para\sua\pasta
+    - (Substitua pelo caminho real)
+
+6️⃣  INSTALAR DEPENDÊNCIAS
+    - Digite: npm install
+    - Aguarde terminar
+
+7️⃣  INICIAR SERVIDOR
+    - Digite: npm start
+    - NÃO FECHE ESTA JANELA!
+
+═══════════════════════════════════════════════════════════════
+
+🎮 COMO JOGAR:
+
+HOST (Quem cria a sala):
+   1. Abra: http://localhost:3000/host.html
+   2. Configure a sala
+   3. Selecione a ROM do jogo
+   4. Clique em "Criar Sala"
+   5. Anote o CÓDIGO DA SALA
+   6. Clique em "Iniciar Compartilhamento"
+   7. Jogue com as setas + Z/X
+
+PLAYERS (Amigos que entram):
+   1. Abram: http://localhost:3000/player.html
+   2. Digitem o CÓDIGO DA SALA
+   3. Cliquem em "Entrar"
+   4. Vejam a tela e joguem!
+
+═══════════════════════════════════════════════════════════════
+
+🎮 CONTROLES:
+
+Jogador 1 (HOST):
+   Setas = Direcionais | Z = A | X = B | Enter = Start
+
+Jogador 2:
+   W/A/S/D = Direcionais | T = A | Y = B | G = Start
+
+Jogador 3:
+   I/J/K/L = Direcionais | N = A | M = B | B = Start
+
+Jogador 4:
+   Numpad = Direcionais | 1 = A | 2 = B | 0 = Start
+
+═══════════════════════════════════════════════════════════════
+
+🕹️ CONSOLES SUPORTADOS:
+
+   ✓ Super Nintendo (SNES)
+   ✓ Nintendo (NES)
+   ✓ Game Boy Advance
+   ✓ Game Boy / Game Boy Color
+   ✓ Sega Genesis / Mega Drive
+   ✓ Nintendo 64
+   ✓ PlayStation 1
+   ✓ Atari 2600
+
+═══════════════════════════════════════════════════════════════
+
+🌐 PARA JOGAR PELA INTERNET:
+
+Depois de testar localmente, você precisa HOSPEDAR o servidor online.
+
+Opções GRÁTIS:
+   • Render.com
+   • Railway.app
+   • Heroku
+
+(Veja instruções detalhadas no GUIA-EMULATORJS.md)
+
+Depois de hospedar, mude nos arquivos host.html e player.html:
+
+   const SERVIDOR_URL = 'http://localhost:3000';
+   
+   Para:
+   
+   const SERVIDOR_URL = 'https://seu-dominio.com';
+
+═══════════════════════════════════════════════════════════════
+
+❓ PROBLEMAS COMUNS:
+
+❌ "npm não é reconhecido"
+   → Instale o Node.js
+
+❌ "Port 3000 already in use"
+   → Mude a porta no servidor-streaming.js (linha 9)
+
+❌ "Cannot find module"
+   → Execute: npm install
+
+❌ Stream não aparece
+   → HOST precisa clicar em "Iniciar Compartilhamento"
+
+═══════════════════════════════════════════════════════════════
+
+⚠️  IMPORTANTE:
+
+   • Use apenas ROMs LEGAIS que você possui!
+   • Mantenha o terminal/CMD aberto enquanto joga
+   • Para testar sozinho, abra em 2 navegadores diferentes
+
+═══════════════════════════════════════════════════════════════
+
+📞 SUPORTE:
+
+   • Leia o GUIA-EMULATORJS.md (instruções completas)
+   • Veja o console do navegador (F12) para erros
+   • Teste localmente antes de hospedar online
+
+═══════════════════════════════════════════════════════════════
+
+🎉 PRONTO! DIVIRTA-SE!
+
+Desenvolvido com ❤️ para a comunidade retro gaming
+
+═══════════════════════════════════════════════════════════════

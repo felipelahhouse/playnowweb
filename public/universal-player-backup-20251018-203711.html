@@ -1,0 +1,467 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Universal Emulator Player</title>
+    
+    <link rel="stylesheet" data-ejs-style href="https://cdn.emulatorjs.org/stable/data/emulator.min.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            height: 100%;
+        }
+
+        @supports (text-size-adjust: 100%) {
+            html {
+                text-size-adjust: 100%;
+            }
+        }
+
+        @supports (-webkit-text-size-adjust: 100%) {
+            html {
+                -webkit-text-size-adjust: 100%;
+            }
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            overflow: hidden;
+            -ms-overflow-style: none;
+        }
+        
+        body::-webkit-scrollbar {
+            display: none;
+        }
+
+        @supports (scrollbar-width: none) {
+            body {
+                scrollbar-width: none;
+            }
+        }
+        
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #0ea5e9;
+            z-index: 9999;
+            padding: 30px;
+            background: rgba(0, 0, 0, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 10px 50px rgba(14, 165, 233, 0.3);
+        }
+
+        @supports (backdrop-filter: blur(10px)) or (-webkit-backdrop-filter: blur(10px)) {
+            #loading {
+                -webkit-backdrop-filter: blur(10px);
+                backdrop-filter: blur(10px);
+            }
+        }
+        
+        #loading.hidden {
+            display: none !important;
+        }
+        
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 5px solid rgba(14, 165, 233, 0.2);
+            border-top-color: #0ea5e9;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        #status {
+            font-size: 14px;
+            font-weight: 600;
+            color: #0ea5e9;
+            margin-bottom: 15px;
+        }
+        
+        .progress-container {
+            width: 100%;
+            max-width: 300px;
+            height: 8px;
+            background: rgba(14, 165, 233, 0.2);
+            border-radius: 10px;
+            margin: 15px auto;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #0ea5e9, #06b6d4);
+            border-radius: 10px;
+            width: 0%;
+            transition: width 0.5s ease;
+        }
+        
+        .progress-text {
+            font-size: 11px;
+            color: #64748b;
+            margin-top: 8px;
+        }
+        
+        #error {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(239, 68, 68, 0.95);
+            color: white;
+            padding: 24px;
+            border-radius: 16px;
+            max-width: 400px;
+            text-align: center;
+            z-index: 10000;
+        }
+        
+        #error.show {
+            display: block;
+        }
+        
+        .retry-btn {
+            background: white;
+            color: #ef4444;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 5px;
+        }
+        
+        #game {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            z-index: 1;
+            display: block;
+            background: #000;
+        }
+        
+        #game canvas {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: contain !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="loading">
+        <div class="spinner"></div>
+        <div id="status">Inicializando...</div>
+        <div class="progress-container">
+            <div class="progress-bar" id="progress-bar"></div>
+        </div>
+        <div class="progress-text" id="progress-text">0%</div>
+    </div>
+    
+    <div id="error">
+        <div id="error-text">Erro ao carregar o emulador</div>
+        <button class="retry-btn" onclick="location.reload()">🔄 Tentar Novamente</button>
+    </div>
+    
+    <div id="game"></div>
+
+    <script>
+        // ========================================
+        // 🛡️ SUPRESSÃO DE ERROS
+        // ========================================
+        
+        const originalError = console.error;
+        const originalWarn = console.warn;
+        
+        console.error = function(...args) {
+            const msg = String(args[0] || '');
+            if (msg.includes('service worker') || msg.includes('ServiceWorker') || 
+                msg.includes('WakeLock') || msg.includes('gamepad') || 
+                msg.includes('controls') || msg.includes('EJS_') || 
+                msg.includes('Runtime') || msg.includes('Core caching') ||
+                msg.includes('fetch core')) {
+                return;
+            }
+            originalError.apply(console, args);
+        };
+        
+        console.warn = function(...args) {
+            const msg = String(args[0] || '');
+            if (msg.includes('service worker') || msg.includes('ServiceWorker') || 
+                msg.includes('WakeLock') || msg.includes('gamepad') ||
+                msg.includes('Loading language')) {
+                return;
+            }
+            originalWarn.apply(console, args);
+        };
+
+        // Bloquear Service Workers
+        if ('serviceWorker' in navigator) {
+            navigator.serviceWorker.register = () => Promise.reject('Blocked');
+            navigator.serviceWorker.getRegistrations = () => Promise.resolve([]);
+        }
+        
+        // Bloquear WakeLock
+        if ('wakeLock' in navigator) {
+            navigator.wakeLock.request = () => Promise.reject('Blocked');
+        }
+
+        // ========================================
+        // 🎮 CONFIGURAÇÃO
+        // ========================================
+        
+        const params = new URLSearchParams(window.location.search);
+        const romUrl = params.get('rom');
+        const gameTitle = params.get('title') || 'Retro Game';
+        const platform = params.get('platform') || 'snes';
+        
+        console.log('🎮 Universal Player V4.0');
+        console.log('ROM:', romUrl);
+        console.log('Platform:', platform);
+        
+        const loading = document.getElementById('loading');
+        const status = document.getElementById('status');
+        const error = document.getElementById('error');
+        const errorText = document.getElementById('error-text');
+        const progressBar = document.getElementById('progress-bar');
+        const progressText = document.getElementById('progress-text');
+        
+        const CORE_CONFIG = {
+            'snes': { core: 'snes9x', name: 'Super Nintendo' },
+            'nes': { core: 'fceumm', name: 'Nintendo' },
+            'gba': { core: 'mgba', name: 'Game Boy Advance' },
+            'gbc': { core: 'gambatte', name: 'Game Boy Color' },
+            'gb': { core: 'gambatte', name: 'Game Boy' },
+            'genesis': { core: 'genesis_plus_gx', name: 'Sega Genesis' },
+            'n64': { core: 'mupen64plus_next', name: 'Nintendo 64' },
+            'ps1': { core: 'pcsx_rearmed', name: 'PlayStation' },
+            'nds': { core: 'desmume2015', name: 'Nintendo DS' },
+            'arcade': { core: 'mame2003_plus', name: 'Arcade' }
+        };
+        
+        const config = CORE_CONFIG[platform.toLowerCase()] || CORE_CONFIG['snes'];
+        
+        function updateProgress(percent, message) {
+            if (progressBar) progressBar.style.width = percent + '%';
+            if (progressText) progressText.textContent = Math.round(percent) + '%';
+            if (status && message) status.textContent = message;
+        }
+        
+        function showError(message) {
+            if (loading) loading.classList.add('hidden');
+            if (error) {
+                error.classList.add('show');
+                if (errorText) errorText.textContent = message;
+            }
+        }
+        
+        function hideLoading() {
+            setTimeout(() => {
+                if (loading) {
+                    loading.classList.add('hidden');
+                    loading.style.display = 'none';
+                }
+            }, 800);
+        }
+        
+        // ========================================
+        // 🚀 CONFIGURAR EMULATORJS
+        // ========================================
+        
+        window.EJS_player = '#game';
+        window.EJS_core = config.core;
+        window.EJS_gameName = gameTitle;
+    window.EJS_biosUrl = '';
+    window.EJS_gameUrl = romUrl;
+        window.EJS_startOnLoaded = true;
+        window.EJS_backgroundImage = '';
+        window.EJS_backgroundColor = '#000000';
+        window.EJS_loadStateOnStart = false;
+        window.EJS_disableDatabases = true;
+        window.EJS_DEBUG_XX = false;
+        
+        window.EJS_onGameStart = () => {
+            console.log('✅ Jogo iniciado!');
+            updateProgress(100, 'Jogo carregado!');
+            hideLoading();
+        };
+        
+        if (!romUrl) {
+            showError('⚠️ URL da ROM não fornecida. Adicione ?rom=URL&platform=snes na URL.');
+        } else {
+            configureAndStart();
+        }
+
+        async function resourceExists(url, options = {}) {
+            try {
+                const response = await fetch(url, {
+                    method: 'HEAD',
+                    cache: 'no-store',
+                    mode: url.startsWith('http') ? 'cors' : 'same-origin',
+                    ...options
+                });
+                return response.ok;
+            } catch (err) {
+                console.warn('[EJS] Falha ao verificar recurso:', url, err);
+                return false;
+            }
+        }
+
+        async function configureAndStart() {
+            try {
+                const FALLBACK_SOURCES = [
+                    'https://cdn.emulatorjs.org/stable/data/',
+                    'https://cdn.jsdelivr.net/npm/emulatorjs@latest/data/'
+                ];
+                const LOCAL_BASE = '/emulatorjs/';
+                const REQUIRED_LOCAL = [
+                    `${LOCAL_BASE}emulator.min.js`,
+                    `${LOCAL_BASE}cores/reports/${config.core}.json`
+                ];
+
+                let dataPath = null;
+
+                if (await resourceExists(`${LOCAL_BASE}version.json`)) {
+                    const allLocalReady = await Promise.all(REQUIRED_LOCAL.map(path => resourceExists(path)));
+                    if (allLocalReady.every(Boolean)) {
+                        dataPath = LOCAL_BASE;
+                        console.log('[EJS] Usando dados locais:', dataPath);
+                    } else {
+                        console.warn('[EJS] Dados locais incompletos, alternando para CDN.');
+                    }
+                }
+
+                if (!dataPath) {
+                    for (const source of FALLBACK_SOURCES) {
+                        if (await resourceExists(`${source}version.json`)) {
+                            dataPath = source;
+                            console.log('[EJS] Usando CDN:', source);
+                            break;
+                        }
+                    }
+                }
+
+                if (!dataPath) {
+                    dataPath = FALLBACK_SOURCES[0];
+                    console.warn('[EJS] Usando CDN padrão sem verificação:', dataPath);
+                }
+
+                window.EJS_pathtodata = dataPath;
+                window.EJS_paths = {
+                    'emulator.min.js': `${dataPath}emulator.min.js`,
+                    'emulator.min.css': `${dataPath}emulator.min.css`
+                };
+
+                const styleLink = document.querySelector('link[data-ejs-style]');
+                if (styleLink) {
+                    styleLink.href = `${dataPath}emulator.min.css`;
+                }
+
+                await initEmulator(dataPath);
+            } catch (err) {
+                console.error('[EJS] Falha na configuração:', err);
+                showError('❌ Erro ao configurar o emulador: ' + err.message);
+            }
+        }
+        
+        async function loadScriptAsync(src) {
+            return new Promise((resolve, reject) => {
+                const script = document.createElement('script');
+                script.src = src;
+                script.async = true;
+                script.crossOrigin = 'anonymous';
+                script.onload = resolve;
+                script.onerror = () => reject(new Error(`Falha ao carregar ${src}`));
+                document.head.appendChild(script);
+            });
+        }
+        
+        async function initEmulator(basePath) {
+            try {
+                updateProgress(20, 'Carregando EmulatorJS...');
+
+                const loaderSrc = basePath.endsWith('/') ? `${basePath}loader.js` : `${basePath}/loader.js`;
+
+                // O loader já é responsável por baixar todos os arquivos necessários
+                await loadScriptAsync(loaderSrc);
+                console.log('✅ Loader carregado');
+
+                updateProgress(60, 'Iniciando jogo...');
+                
+                updateProgress(80, 'Finalizando...');
+                
+                let progress = 80;
+                const progressInterval = setInterval(() => {
+                    if (progress < 95) {
+                        progress += 1;
+                        updateProgress(progress, 'Carregando...');
+                    } else {
+                        clearInterval(progressInterval);
+                    }
+                }, 500);
+                
+                // Verificar canvas
+                const checkCanvas = setInterval(() => {
+                    const canvas = document.querySelector('#game canvas');
+                    if (canvas) {
+                        console.log('✅ Canvas detectado');
+                        clearInterval(checkCanvas);
+                        clearInterval(progressInterval);
+                        
+                        setTimeout(() => {
+                            if (!loading.classList.contains('hidden')) {
+                                hideLoading();
+                            }
+                        }, 1000);
+                    }
+                }, 300);
+                
+                // Timeout de 30 segundos
+                setTimeout(() => {
+                    clearInterval(checkCanvas);
+                    clearInterval(progressInterval);
+                    if (!loading.classList.contains('hidden')) {
+                        console.log('⚠️ Timeout - forçando exibição');
+                        hideLoading();
+                    }
+                }, 30000);
+                
+            } catch (err) {
+                console.error('❌ Erro ao carregar emulador:', err);
+                showError('❌ Erro ao carregar emulador: ' + err.message);
+            }
+        }
+    </script>
+</body>
+</html>

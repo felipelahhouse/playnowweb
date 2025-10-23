@@ -1,0 +1,176 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Debug: Onde Está o Botão NEW UI?</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <style>
+        body { 
+            background: #000;
+            color: #fff;
+            font-family: system-ui, -apple-system, sans-serif;
+        }
+        .pulse-border {
+            animation: pulse-border 2s infinite;
+        }
+        @keyframes pulse-border {
+            0%, 100% { border-color: rgba(6, 182, 212, 0.5); }
+            50% { border-color: rgba(6, 182, 212, 1); }
+        }
+    </style>
+</head>
+<body class="p-8">
+    <div class="max-w-6xl mx-auto">
+        <h1 class="text-4xl font-black text-cyan-400 mb-8">🔍 Debug Visual: Onde Está o Botão?</h1>
+        
+        <div class="bg-gray-900 rounded-2xl p-8 mb-8 border-2 border-cyan-500/30">
+            <h2 class="text-2xl font-bold mb-4 text-white">📍 Localização Exata do Botão</h2>
+            <p class="text-gray-300 mb-4">O botão <span class="text-cyan-400 font-bold">"✨ NEW UI Showcase"</span> aparece nesta posição:</p>
+            
+            <!-- Simulação da estrutura -->
+            <div class="border-2 border-yellow-500 rounded-xl overflow-hidden">
+                <!-- Hero Section -->
+                <div class="bg-gradient-to-br from-gray-900 via-purple-900/20 to-black p-12 text-center border-b-2 border-yellow-500">
+                    <h3 class="text-xl text-gray-400 mb-2">⬆️ HERO SECTION (topo da página)</h3>
+                    <p class="text-gray-500">Stats, partículas, botões principais...</p>
+                </div>
+                
+                <!-- AQUI ESTÁ O BOTÃO -->
+                <div class="bg-gradient-to-b from-gray-900 to-black border-y-4 border-red-500 pulse-border">
+                    <div class="container mx-auto px-6">
+                        <div class="flex items-center gap-4 py-6 overflow-x-auto">
+                            <!-- O BOTÃO QUE VOCÊ PROCURA -->
+                            <div class="relative">
+                                <div class="absolute -top-12 left-1/2 -translate-x-1/2 whitespace-nowrap">
+                                    <div class="bg-red-500 text-white px-4 py-2 rounded-lg text-sm font-bold animate-bounce">
+                                        ⬇️ CLIQUE AQUI! ⬇️
+                                    </div>
+                                </div>
+                                <button class="flex items-center gap-2 px-6 py-3 rounded-xl font-bold bg-gradient-to-r from-cyan-500 to-purple-500 text-white shadow-lg shadow-cyan-500/50 scale-110 border-4 border-yellow-400 animate-pulse">
+                                    <span class="text-lg">✨</span>
+                                    <span class="text-lg">NEW UI Showcase</span>
+                                </button>
+                            </div>
+                            
+                            <!-- Outros botões -->
+                            <button class="flex items-center gap-2 px-6 py-3 rounded-xl font-bold bg-gray-800/50 text-gray-400 opacity-50">
+                                <span>📺</span>
+                                <span>Streams</span>
+                            </button>
+                            <button class="flex items-center gap-2 px-6 py-3 rounded-xl font-bold bg-gray-800/50 text-gray-400 opacity-50">
+                                <span>🎮</span>
+                                <span>Games</span>
+                            </button>
+                            <button class="flex items-center gap-2 px-6 py-3 rounded-xl font-bold bg-gray-800/50 text-gray-400 opacity-50">
+                                <span>👥</span>
+                                <span>Multiplayer</span>
+                            </button>
+                            <button class="flex items-center gap-2 px-6 py-3 rounded-xl font-bold bg-gray-800/50 text-gray-400 opacity-50">
+                                <span>🏆</span>
+                                <span>Tournaments</span>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Conteúdo -->
+                <div class="bg-black p-12 text-center border-t-2 border-yellow-500">
+                    <h3 class="text-xl text-gray-400 mb-2">⬇️ CONTEÚDO DA PÁGINA</h3>
+                    <p class="text-gray-500">Biblioteca de jogos, streams, etc...</p>
+                </div>
+            </div>
+            
+            <div class="mt-6 p-4 bg-yellow-500/10 border-2 border-yellow-500 rounded-xl">
+                <p class="text-yellow-400 font-bold">⚠️ IMPORTANTE:</p>
+                <p class="text-yellow-200 mt-2">Se você NÃO está vendo esse botão, pode ser:</p>
+                <ul class="list-disc list-inside text-yellow-100 mt-2 space-y-1">
+                    <li>Cache do navegador (aperte <code class="bg-black px-2 py-1 rounded">Ctrl + Shift + R</code>)</li>
+                    <li>Servidor não atualizou (pare e rode <code class="bg-black px-2 py-1 rounded">npm run dev</code> novamente)</li>
+                    <li>JavaScript desabilitado</li>
+                    <li>Erro no console (aperte <code class="bg-black px-2 py-1 rounded">F12</code>)</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Características do botão -->
+        <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div class="bg-gray-900 rounded-xl p-6 border-2 border-cyan-500/30">
+                <h3 class="text-xl font-bold text-cyan-400 mb-4">✅ Como o botão parece:</h3>
+                <ul class="space-y-2 text-gray-300">
+                    <li>✨ Ícone de estrelas à esquerda</li>
+                    <li>🌈 Gradiente cyan → purple</li>
+                    <li>💫 Animação de pulse (pisca)</li>
+                    <li>💎 Sombra cyan brilhante</li>
+                    <li>📏 Maior que os outros botões</li>
+                    <li>🔲 Borda cyan destacada</li>
+                    <li>📝 Texto: "NEW UI Showcase"</li>
+                </ul>
+            </div>
+            
+            <div class="bg-gray-900 rounded-xl p-6 border-2 border-purple-500/30">
+                <h3 class="text-xl font-bold text-purple-400 mb-4">🎯 O que acontece ao clicar:</h3>
+                <ul class="space-y-2 text-gray-300">
+                    <li>🔄 Página muda completamente</li>
+                    <li>📊 Aparecem 3 seções de melhorias</li>
+                    <li>🎴 Game cards com efeitos 3D</li>
+                    <li>🧭 Navegação moderna animada</li>
+                    <li>📈 Dashboard rico com estatísticas</li>
+                    <li>🎛️ Filtros no topo (All/Cards/Navigation/Dashboard)</li>
+                </ul>
+            </div>
+        </div>
+
+        <!-- Teste passo a passo -->
+        <div class="bg-gradient-to-br from-gray-900 via-purple-900/30 to-black rounded-2xl p-8 border-2 border-purple-500/50">
+            <h2 class="text-2xl font-bold mb-6 text-white">🧪 Teste Passo a Passo</h2>
+            
+            <div class="space-y-4">
+                <div class="flex items-start gap-4">
+                    <div class="flex-shrink-0 w-8 h-8 bg-cyan-500 rounded-full flex items-center justify-center font-bold">1</div>
+                    <div>
+                        <h4 class="font-bold text-white mb-1">Abra o Chrome/Edge DevTools</h4>
+                        <p class="text-gray-400 text-sm">Aperte <code class="bg-black px-2 py-1 rounded">F12</code></p>
+                    </div>
+                </div>
+                
+                <div class="flex items-start gap-4">
+                    <div class="flex-shrink-0 w-8 h-8 bg-cyan-500 rounded-full flex items-center justify-center font-bold">2</div>
+                    <div>
+                        <h4 class="font-bold text-white mb-1">Vá para a aba Console</h4>
+                        <p class="text-gray-400 text-sm">Procure por erros em vermelho</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-start gap-4">
+                    <div class="flex-shrink-0 w-8 h-8 bg-cyan-500 rounded-full flex items-center justify-center font-bold">3</div>
+                    <div>
+                        <h4 class="font-bold text-white mb-1">Na aba Elements, procure por:</h4>
+                        <code class="block bg-black p-2 rounded mt-2 text-cyan-400 text-xs">
+                            &lt;button ... &gt;✨ NEW UI Showcase&lt;/button&gt;
+                        </code>
+                        <p class="text-gray-400 text-sm mt-2">Use <code class="bg-black px-2 py-1 rounded">Ctrl + F</code> para buscar "NEW UI"</p>
+                    </div>
+                </div>
+                
+                <div class="flex items-start gap-4">
+                    <div class="flex-shrink-0 w-8 h-8 bg-cyan-500 rounded-full flex items-center justify-center font-bold">4</div>
+                    <div>
+                        <h4 class="font-bold text-white mb-1">Se não encontrar, rode no console:</h4>
+                        <code class="block bg-black p-2 rounded mt-2 text-green-400 text-xs">
+                            document.querySelector('button[onClick*="showcase"]')
+                        </code>
+                        <p class="text-gray-400 text-sm mt-2">Se retornar <code class="bg-black px-2 py-1 rounded">null</code>, o botão não foi renderizado</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Footer -->
+        <div class="mt-12 text-center text-gray-500">
+            <p>📝 Debug criado em: 13/10/2025 - 17:15</p>
+            <p class="mt-2">🔧 Se ainda não funcionar, me avise e vou investigar mais fundo!</p>
+        </div>
+    </div>
+</body>
+</html>

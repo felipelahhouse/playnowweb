@@ -1,0 +1,308 @@
+/**
+ * 🎮 Multiplayer Player Component
+ * Componente para entrar em sessão multiplayer como player
+ * Usa Firestore para dados e Socket.IO opcional para sincronização
+ */
+
+import React, { useEffect, useRef, useState } from 'react';
+import { X, Wifi, WifiOff, Loader2, Gamepad2 } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
+import { doc, getDoc, collection, onSnapshot } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
+
+interface MultiplayerPlayerProps {
+  sessionId: string;
+  onClose: () => void;
+}
+
+interface SessionData {
+  id: string;
+  hostUserId: string;
+  hostName: string;
+  gameId: string;
+  gameTitle: string;
+  gamePlatform: string;
+  sessionName: string;
+  romUrl?: string;
+  gameCover?: string;
+}
+
+const MultiplayerPlayerComponent: React.FC<MultiplayerPlayerProps> = ({
+  sessionId,
+  onClose
+}) => {
+  const { user } = useAuth();
+  const iframeRef = useRef<HTMLIFrameElement>(null);
+  const [status, setStatus] = useState<'connecting' | 'connected' | 'error'>('connecting');
+  const [error, setError] = useState<string | null>(null);
+  const [sessionData, setSessionData] = useState<SessionData | null>(null);
+  const [otherPlayers, setOtherPlayers] = useState<Map<string, string>>(new Map());
+
+  useEffect(() => {
+    if (!user?.id || !user?.username) {
+      setError('Você precisa estar logado');
+      setStatus('error');
+      return;
+    }
+
+    let isMounted = true;
+
+    const loadSession = async () => {
+      try {
+        console.log('🎮 [PLAYER] Carregando sessão do Firestore:', sessionId);
+        
+        // Buscar dados da sessão no Firestore
+        const sessionRef = doc(db, 'game_sessions', sessionId);
+        const sessionSnap = await getDoc(sessionRef);
+        
+        if (!sessionSnap.exists()) {
+          throw new Error('Sessão não encontrada');
+        }
+
+        const data = sessionSnap.data();
+        const session: SessionData = {
+          id: sessionSnap.id,
+          hostUserId: data.hostUserId || '',
+          hostName: data.hostName || 'Host',
+          gameId: data.gameId || '',
+          gameTitle: data.gameTitle || 'Jogo Desconhecido',
+          gamePlatform: data.gamePlatform || 'snes',
+          sessionName: data.sessionName || 'Sala',
+          romUrl: data.romUrl || '',
+          gameCover: data.gameCover || ''
+        };
+
+        if (!isMounted) return;
+
+        console.log('✅ [PLAYER] Sessão carregada:', session);
+        setSessionData(session);
+        setStatus('connected');
+
+        // Escutar mudanças nos jogadores
+        const playersRef = collection(db, 'game_sessions', sessionId, 'players');
+        const unsubscribePlayers = onSnapshot(playersRef, (snapshot) => {
+          const players = new Map<string, string>();
+          snapshot.forEach((doc) => {
+            const playerData = doc.data();
+            if (doc.id !== user.id) { // Não incluir a si mesmo
+              players.set(doc.id, playerData.username || 'Jogador');
+            }
+          });
+          
+          if (isMounted) {
+            setOtherPlayers(players);
+            console.log('👥 [PLAYER] Jogadores na sala:', players.size + 1);
+          }
+        });
+
+        return unsubscribePlayers;
+
+      } catch (err: any) {
+        if (isMounted) {
+          console.error('❌ [PLAYER] Erro ao carregar sessão:', err);
+          setError(err.message || 'Erro ao carregar sessão');
+          setStatus('error');
+        }
+      }
+    };
+
+    const unsubscribe = loadSession();
+
+    return () => {
+      isMounted = false;
+      if (unsubscribe) {
+        unsubscribe.then(unsub => unsub && unsub());
+      }
+    };
+  }, [sessionId, user?.id, user?.username]);
+
+  // 🎥 Receber stream de frames do Host
+  useEffect(() => {
+    if (!sessionId || !canvasRef.current) return;
+
+    console.log('� [PLAYER] Iniciando listener de stream do Host...');
+
+    const streamRef = doc(db, 'game_sessions', sessionId, 'stream', 'current');
+    
+    const unsubscribe = onSnapshot(streamRef, (snap) => {
+      const data = snap.data();
+      if (data?.frame && canvasRef.current) {
+        const canvas = canvasRef.current;
+        const ctx = canvas.getContext('2d');
+        if (!ctx) return;
+
+        // Criar imagem a partir do Base64
+        const img = new Image();
+        img.onload = () => {
+          // Redimensionar canvas para o tamanho da imagem
+          canvas.width = img.width;
+          canvas.height = img.height;
+          
+          // Desenhar frame no canvas
+          ctx.drawImage(img, 0, 0);
+          
+          if (!streamActive) {
+            setStreamActive(true);
+            console.log('✅ [PLAYER] Stream do Host ativo!');
+          }
+        };
+        img.src = data.frame;
+      }
+    }, (error) => {
+      console.error('❌ [PLAYER] Erro ao receber stream:', error);
+    });
+
+    return () => {
+      console.log('🔌 [PLAYER] Desconectando listener de stream');
+      unsubscribe();
+    };
+  }, [sessionId, streamActive]);
+
+  const handleClose = () => {
+    onClose();
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black z-50 flex flex-col">
+      {/* Header */}
+      <div className="bg-gradient-to-r from-gray-900 to-gray-800 border-b border-gray-700 p-4">
+        <div className="flex items-center justify-between max-w-7xl mx-auto">
+          <div className="flex items-center gap-4">
+            <div className="w-10 h-10 bg-gradient-to-br from-purple-500 to-pink-500 rounded-lg flex items-center justify-center">
+              <Gamepad2 className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-white">
+                {sessionData?.gameTitle || 'Carregando...'}
+              </h2>
+              <p className="text-sm text-gray-400">
+                Host: {sessionData?.hostName || 'Host'}
+              </p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-4">
+            {/* Status */}
+            <div className="flex items-center gap-2 px-4 py-2 bg-gray-800 rounded-lg">
+              {status === 'connecting' && (
+                <>
+                  <Loader2 className="w-4 h-4 text-yellow-400 animate-spin" />
+                  <span className="text-yellow-400 text-sm font-medium">Conectando...</span>
+                </>
+              )}
+              {status === 'connected' && (
+                <>
+                  <Wifi className="w-4 h-4 text-green-400" />
+                  <span className="text-green-400 text-sm font-medium">Conectado</span>
+                </>
+              )}
+              {status === 'error' && (
+                <>
+                  <WifiOff className="w-4 h-4 text-red-400" />
+                  <span className="text-red-400 text-sm font-medium">Erro</span>
+                </>
+              )}
+            </div>
+
+            {/* Players count */}
+            {status === 'connected' && (
+              <div className="flex items-center gap-2 px-3 py-2 bg-gray-800 rounded-lg">
+                <Gamepad2 className="w-4 h-4 text-cyan-400" />
+                <span className="text-white text-sm font-medium">
+                  {otherPlayers.size + 1} jogadores
+                </span>
+              </div>
+            )}
+
+            <button
+              onClick={handleClose}
+              className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+            >
+              <X className="w-5 h-5 text-gray-400" />
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Content */}
+      <div className="flex-1 flex items-center justify-center bg-black p-4 overflow-hidden">
+        {status === 'connecting' && (
+          <div className="text-center">
+            <Loader2 className="w-16 h-16 text-purple-500 animate-spin mx-auto mb-4" />
+            <p className="text-white text-lg font-medium">Conectando à sala...</p>
+            <p className="text-gray-400 text-sm mt-2">Por favor, aguarde</p>
+          </div>
+        )}
+
+        {status === 'error' && (
+          <div className="text-center max-w-md">
+            <WifiOff className="w-16 h-16 text-red-500 mx-auto mb-4" />
+            <p className="text-white text-lg font-medium mb-2">Erro ao conectar</p>
+            <p className="text-gray-400 text-sm">{error}</p>
+            <button
+              onClick={handleClose}
+              className="mt-6 px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg text-white font-medium transition-colors"
+            >
+              Voltar ao Lobby
+            </button>
+          </div>
+        )}
+
+        {status === 'connected' && sessionData && (
+          <div className="w-full h-full flex flex-col items-center justify-center gap-4">
+            {/* Stream Canvas - Exibe video do Host */}
+            <div className="relative w-full h-full flex items-center justify-center bg-gray-900">
+              <canvas
+                ref={canvasRef}
+                className="max-w-full max-h-full object-contain"
+                style={{ imageRendering: 'pixelated' }}
+              />
+              
+              {!streamActive && (
+                <div className="absolute inset-0 flex items-center justify-center bg-black/70">
+                  <div className="text-center">
+                    <Loader2 className="w-12 h-12 text-cyan-500 animate-spin mx-auto mb-3" />
+                    <p className="text-white text-lg font-medium">Aguardando transmissão do Host...</p>
+                    <p className="text-gray-400 text-sm mt-2">O host deve iniciar o jogo</p>
+                  </div>
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+      </div>
+
+      {/* Controls Info */}
+      {status === 'connected' && (
+        <div className="bg-gradient-to-r from-gray-900 to-gray-800 border-t border-gray-700 p-4">
+          <div className="max-w-7xl mx-auto">
+            <div className="flex items-center justify-center gap-8 text-sm flex-wrap">
+              <div className="flex items-center gap-2">
+                <kbd className="px-2 py-1 bg-gray-700 rounded text-white font-mono">↑↓←→</kbd>
+                <span className="text-gray-400">Movimento</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <kbd className="px-2 py-1 bg-gray-700 rounded text-white font-mono">Z</kbd>
+                <span className="text-gray-400">A</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <kbd className="px-2 py-1 bg-gray-700 rounded text-white font-mono">X</kbd>
+                <span className="text-gray-400">B</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <kbd className="px-2 py-1 bg-gray-700 rounded text-white font-mono">Enter</kbd>
+                <span className="text-gray-400">Start</span>
+              </div>
+              <div className="flex items-center gap-2">
+                <kbd className="px-2 py-1 bg-gray-700 rounded text-white font-mono">Shift</kbd>
+                <span className="text-gray-400">Select</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
+  );
+};
+
+export default MultiplayerPlayerComponent;

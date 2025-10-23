@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste Firebase Auth</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            max-width: 800px;
+            margin: 50px auto;
+            padding: 20px;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        .container {
+            background: #2a2a2a;
+            padding: 30px;
+            border-radius: 10px;
+        }
+        input {
+            width: 100%;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #444;
+            background: #333;
+            color: #fff;
+            border-radius: 5px;
+        }
+        button {
+            width: 100%;
+            padding: 15px;
+            margin: 10px 0;
+            background: #0066cc;
+            color: white;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+        button:hover {
+            background: #0052a3;
+        }
+        #result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 5px;
+            white-space: pre-wrap;
+            word-wrap: break-word;
+        }
+        .success {
+            background: #1a5d1a;
+            border: 1px solid #2d8f2d;
+        }
+        .error {
+            background: #5d1a1a;
+            border: 1px solid #8f2d2d;
+        }
+        .info {
+            background: #1a3d5d;
+            border: 1px solid #2d5f8f;
+        }
+        h1 {
+            color: #00bfff;
+        }
+        h2 {
+            color: #ffa500;
+            margin-top: 30px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔥 Teste Firebase Authentication</h1>
+        
+        <h2>1. Status da Configuração</h2>
+        <div id="config" class="info">Verificando configuração...</div>
+
+        <h2>2. Criar Conta de Teste</h2>
+        <input type="text" id="username" placeholder="Username (ex: TestUser)" value="TestUser123">
+        <input type="email" id="email" placeholder="Email (ex: test@example.com)" value="test@example.com">
+        <input type="password" id="password" placeholder="Senha (mínimo 6 caracteres)" value="teste123">
+        <button onclick="testSignUp()">🚀 Criar Conta de Teste</button>
+
+        <h2>3. Testar Login</h2>
+        <input type="email" id="loginEmail" placeholder="Email" value="test@example.com">
+        <input type="password" id="loginPassword" placeholder="Senha" value="teste123">
+        <button onclick="testSignIn()">🔑 Fazer Login</button>
+
+        <h2>4. Resultado dos Testes</h2>
+        <div id="result" class="info">Aguardando teste...</div>
+    </div>
+
+    <!-- Firebase SDKs -->
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, createUserWithEmailAndPassword, signInWithEmailAndPassword, updateProfile } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+        import { getFirestore, doc, setDoc, getDoc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+        // Configuração Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyDmC_HF775QiX6EA3rx2xDF2XXw8zmg3yQ",
+            authDomain: "planowemulator.firebaseapp.com",
+            projectId: "planowemulator",
+            storageBucket: "planowemulator.firebasestorage.app",
+            messagingSenderId: "509464952147",
+            appId: "1:509464952147:web:59776912f625f3235cf5a6"
+        };
+
+        // Inicializar Firebase
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const db = getFirestore(app);
+
+        // Exibir status da configuração
+        const configDiv = document.getElementById('config');
+        configDiv.innerHTML = `✅ Firebase Configurado
+Project ID: ${firebaseConfig.projectId}
+Auth Domain: ${firebaseConfig.authDomain}
+Firestore: Inicializado
+Auth: Inicializado`;
+        configDiv.className = 'success';
+
+        // Função para criar conta
+        window.testSignUp = async function() {
+            const email = document.getElementById('email').value;
+            const password = document.getElementById('password').value;
+            const username = document.getElementById('username').value;
+            const resultDiv = document.getElementById('result');
+
+            resultDiv.innerHTML = '⏳ Criando conta...\n';
+            resultDiv.className = 'info';
+
+            try {
+                // Log inicial
+                console.log('🔵 Iniciando criação de conta...', { email, username });
+                resultDiv.innerHTML += `\n📝 Email: ${email}\n📝 Username: ${username}\n`;
+
+                // Passo 1: Criar conta no Firebase Auth
+                resultDiv.innerHTML += '\n⏳ Passo 1: Criando conta no Firebase Auth...';
+                const userCredential = await createUserWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+                
+                resultDiv.innerHTML += `\n✅ Conta criada! UID: ${user.uid}\n`;
+                console.log('✅ Conta criada no Firebase Auth:', user.uid);
+
+                // Passo 2: Atualizar perfil com username
+                resultDiv.innerHTML += '\n⏳ Passo 2: Atualizando perfil...';
+                await updateProfile(user, { displayName: username });
+                resultDiv.innerHTML += '\n✅ Perfil atualizado!';
+                console.log('✅ Profile atualizado');
+
+                // Passo 3: Criar documento no Firestore
+                resultDiv.innerHTML += '\n⏳ Passo 3: Criando perfil no Firestore...';
+                const userProfile = {
+                    id: user.uid,
+                    email: user.email,
+                    username: username,
+                    created_at: new Date().toISOString(),
+                    is_online: true,
+                    last_seen: new Date().toISOString()
+                };
+
+                await setDoc(doc(db, 'users', user.uid), userProfile);
+                resultDiv.innerHTML += '\n✅ Perfil criado no Firestore!';
+                console.log('✅ Perfil criado no Firestore');
+
+                // Passo 4: Verificar se foi criado
+                resultDiv.innerHTML += '\n⏳ Passo 4: Verificando criação...';
+                const docSnap = await getDoc(doc(db, 'users', user.uid));
+                
+                if (docSnap.exists()) {
+                    resultDiv.innerHTML += '\n✅ Verificação OK! Dados salvos:';
+                    resultDiv.innerHTML += '\n' + JSON.stringify(docSnap.data(), null, 2);
+                    resultDiv.className = 'success';
+                    
+                    resultDiv.innerHTML += '\n\n🎉 SUCESSO TOTAL! Conta criada e funcionando!';
+                    resultDiv.innerHTML += '\n\n✅ Firebase Auth: OK';
+                    resultDiv.innerHTML += '\n✅ Firestore: OK';
+                    resultDiv.innerHTML += '\n✅ Perfil: OK';
+                } else {
+                    throw new Error('Documento não foi encontrado no Firestore!');
+                }
+
+            } catch (error) {
+                console.error('❌ ERRO:', error);
+                resultDiv.innerHTML = '❌ ERRO AO CRIAR CONTA:\n\n';
+                resultDiv.innerHTML += `Código: ${error.code}\n`;
+                resultDiv.innerHTML += `Mensagem: ${error.message}\n\n`;
+                
+                // Mensagens específicas
+                if (error.code === 'auth/email-already-in-use') {
+                    resultDiv.innerHTML += '⚠️ Este email já está cadastrado!\n';
+                    resultDiv.innerHTML += '💡 Tente fazer login ou use outro email.';
+                } else if (error.code === 'auth/invalid-email') {
+                    resultDiv.innerHTML += '⚠️ Email inválido!';
+                } else if (error.code === 'auth/weak-password') {
+                    resultDiv.innerHTML += '⚠️ Senha muito fraca! Use pelo menos 6 caracteres.';
+                } else if (error.code === 'permission-denied') {
+                    resultDiv.innerHTML += '⚠️ Erro de permissão no Firestore!\n';
+                    resultDiv.innerHTML += '💡 As regras do Firestore podem estar muito restritivas.';
+                } else {
+                    resultDiv.innerHTML += '\n📋 Stack trace:\n' + error.stack;
+                }
+                
+                resultDiv.className = 'error';
+            }
+        };
+
+        // Função para login
+        window.testSignIn = async function() {
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            const resultDiv = document.getElementById('result');
+
+            resultDiv.innerHTML = '⏳ Fazendo login...\n';
+            resultDiv.className = 'info';
+
+            try {
+                const userCredential = await signInWithEmailAndPassword(auth, email, password);
+                const user = userCredential.user;
+
+                resultDiv.innerHTML += `\n✅ Login realizado com sucesso!`;
+                resultDiv.innerHTML += `\n📝 UID: ${user.uid}`;
+                resultDiv.innerHTML += `\n📝 Email: ${user.email}`;
+                resultDiv.innerHTML += `\n📝 Display Name: ${user.displayName}`;
+
+                // Buscar perfil no Firestore
+                resultDiv.innerHTML += '\n\n⏳ Buscando perfil no Firestore...';
+                const docSnap = await getDoc(doc(db, 'users', user.uid));
+                
+                if (docSnap.exists()) {
+                    resultDiv.innerHTML += '\n✅ Perfil encontrado:';
+                    resultDiv.innerHTML += '\n' + JSON.stringify(docSnap.data(), null, 2);
+                    resultDiv.className = 'success';
+                } else {
+                    resultDiv.innerHTML += '\n⚠️ Perfil não encontrado no Firestore!';
+                    resultDiv.className = 'error';
+                }
+
+            } catch (error) {
+                console.error('❌ ERRO:', error);
+                resultDiv.innerHTML = '❌ ERRO AO FAZER LOGIN:\n\n';
+                resultDiv.innerHTML += `Código: ${error.code}\n`;
+                resultDiv.innerHTML += `Mensagem: ${error.message}\n\n`;
+                
+                if (error.code === 'auth/user-not-found') {
+                    resultDiv.innerHTML += '⚠️ Usuário não encontrado!';
+                } else if (error.code === 'auth/wrong-password') {
+                    resultDiv.innerHTML += '⚠️ Senha incorreta!';
+                } else if (error.code === 'auth/invalid-email') {
+                    resultDiv.innerHTML += '⚠️ Email inválido!';
+                }
+                
+                resultDiv.className = 'error';
+            }
+        };
+    </script>
+</body>
+</html>

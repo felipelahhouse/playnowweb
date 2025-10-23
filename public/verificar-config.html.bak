@@ -1,0 +1,329 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Verificar Configuração - PlayNow Emulator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            background: white;
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            max-width: 800px;
+            width: 100%;
+            padding: 40px;
+        }
+
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 2.5em;
+            text-align: center;
+        }
+
+        .subtitle {
+            color: #666;
+            text-align: center;
+            margin-bottom: 40px;
+            font-size: 1.1em;
+        }
+
+        .check-item {
+            background: #f8f9fa;
+            border-radius: 12px;
+            padding: 20px;
+            margin-bottom: 20px;
+            border-left: 5px solid #e0e0e0;
+        }
+
+        .check-item.success {
+            border-left-color: #4caf50;
+            background: #e8f5e9;
+        }
+
+        .check-item.error {
+            border-left-color: #f44336;
+            background: #ffebee;
+        }
+
+        .check-item.warning {
+            border-left-color: #ff9800;
+            background: #fff3e0;
+        }
+
+        .check-title {
+            font-weight: bold;
+            font-size: 1.2em;
+            margin-bottom: 10px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .check-details {
+            color: #555;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            word-break: break-all;
+            margin-top: 10px;
+            padding: 10px;
+            background: rgba(0,0,0,0.05);
+            border-radius: 6px;
+        }
+
+        .status-icon {
+            font-size: 1.5em;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 1.1em;
+            cursor: pointer;
+            width: 100%;
+            margin-top: 20px;
+            font-weight: bold;
+            transition: transform 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .summary {
+            text-align: center;
+            font-size: 1.3em;
+            margin-top: 30px;
+            padding: 20px;
+            border-radius: 12px;
+            font-weight: bold;
+        }
+
+        .summary.ok {
+            background: #4caf50;
+            color: white;
+        }
+
+        .summary.problem {
+            background: #f44336;
+            color: white;
+        }
+
+        .help-text {
+            background: #e3f2fd;
+            border-left: 4px solid #2196f3;
+            padding: 15px;
+            border-radius: 8px;
+            margin-top: 20px;
+        }
+
+        .help-text strong {
+            color: #1976d2;
+        }
+
+        code {
+            background: rgba(0,0,0,0.1);
+            padding: 2px 6px;
+            border-radius: 4px;
+            font-family: 'Courier New', monospace;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Verificador de Configuração</h1>
+        <p class="subtitle">Diagnóstico completo do sistema de autenticação</p>
+
+        <div id="results"></div>
+
+        <button class="btn" onclick="window.location.reload()">🔄 Verificar Novamente</button>
+    </div>
+
+    <script type="module">
+        const results = document.getElementById('results');
+
+        function addCheck(title, status, details = '') {
+            const statusIcons = {
+                success: '✅',
+                error: '❌',
+                warning: '⚠️'
+            };
+
+            const div = document.createElement('div');
+            div.className = `check-item ${status}`;
+            div.innerHTML = `
+                <div class="check-title">
+                    <span class="status-icon">${statusIcons[status]}</span>
+                    ${title}
+                </div>
+                ${details ? `<div class="check-details">${details}</div>` : ''}
+            `;
+            results.appendChild(div);
+        }
+
+        // 1. Verificar variáveis de ambiente
+        const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+        const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
+
+        console.log('🔍 Verificando configuração...');
+        console.log('VITE_SUPABASE_URL:', supabaseUrl);
+        console.log('VITE_SUPABASE_ANON_KEY:', supabaseKey ? `${supabaseKey.substring(0, 20)}...` : 'undefined');
+
+        // Verificação 1: URL do Supabase
+        if (supabaseUrl) {
+            addCheck(
+                'URL do Supabase Configurada',
+                'success',
+                `URL: ${supabaseUrl}`
+            );
+        } else {
+            addCheck(
+                'URL do Supabase NÃO Configurada',
+                'error',
+                'A variável VITE_SUPABASE_URL não está definida. Configure no Cloudflare Pages.'
+            );
+        }
+
+        // Verificação 2: Chave Anônima do Supabase
+        if (supabaseKey) {
+            addCheck(
+                'Chave Anônima do Supabase Configurada',
+                'success',
+                `Key: ${supabaseKey.substring(0, 30)}...`
+            );
+        } else {
+            addCheck(
+                'Chave Anônima do Supabase NÃO Configurada',
+                'error',
+                'A variável VITE_SUPABASE_ANON_KEY não está definida. Configure no Cloudflare Pages.'
+            );
+        }
+
+        // Verificação 3: Tentar conectar ao Supabase
+        if (supabaseUrl && supabaseKey) {
+            try {
+                const { createClient } = await import('https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/+esm');
+                const supabase = createClient(supabaseUrl, supabaseKey);
+                
+                addCheck(
+                    'Cliente Supabase Criado com Sucesso',
+                    'success',
+                    'O cliente do Supabase foi inicializado corretamente.'
+                );
+
+                // Tentar fazer uma query simples
+                try {
+                    const { data, error } = await supabase.from('users').select('count', { count: 'exact', head: true });
+                    
+                    if (error) {
+                        if (error.message.includes('relation "public.users" does not exist')) {
+                            addCheck(
+                                'Tabela "users" Não Existe',
+                                'error',
+                                'A tabela "users" não foi criada no Supabase. Execute o script MIGRAR-PARA-UUID.sql no SQL Editor do Supabase.'
+                            );
+                        } else {
+                            addCheck(
+                                'Erro ao Acessar Tabela Users',
+                                'warning',
+                                `Erro: ${error.message}`
+                            );
+                        }
+                    } else {
+                        addCheck(
+                            'Conexão com Banco de Dados OK',
+                            'success',
+                            'Conseguiu conectar e acessar a tabela "users" com sucesso.'
+                        );
+                    }
+                } catch (e) {
+                    addCheck(
+                        'Erro ao Testar Conexão',
+                        'error',
+                        `Erro: ${e.message}`
+                    );
+                }
+            } catch (e) {
+                addCheck(
+                    'Erro ao Criar Cliente Supabase',
+                    'error',
+                    `Erro: ${e.message}`
+                );
+            }
+        }
+
+        // Verificação 4: Ambiente
+        const isProd = window.location.hostname.includes('pages.dev') || window.location.hostname.includes('playnowemulator');
+        const isLocal = window.location.hostname === 'localhost';
+
+        if (isProd) {
+            addCheck(
+                'Ambiente: PRODUÇÃO',
+                'warning',
+                `Rodando em: ${window.location.hostname}<br><br>⚠️ Se as variáveis não estão configuradas, você precisa:<br>1. Ir em Cloudflare Dashboard<br>2. Pages > playnowemulator > Settings<br>3. Environment variables<br>4. Adicionar VITE_SUPABASE_URL e VITE_SUPABASE_ANON_KEY<br>5. Fazer Retry deployment`
+            );
+        } else if (isLocal) {
+            addCheck(
+                'Ambiente: LOCAL',
+                'success',
+                `Rodando em: ${window.location.hostname}<br><br>✅ Variáveis são lidas do arquivo .env`
+            );
+        } else {
+            addCheck(
+                'Ambiente: DESCONHECIDO',
+                'warning',
+                `Rodando em: ${window.location.hostname}`
+            );
+        }
+
+        // Resumo final
+        setTimeout(() => {
+            const hasUrl = !!supabaseUrl;
+            const hasKey = !!supabaseKey;
+            const allGood = hasUrl && hasKey;
+
+            const summary = document.createElement('div');
+            summary.className = `summary ${allGood ? 'ok' : 'problem'}`;
+            
+            if (allGood) {
+                summary.innerHTML = '🎉 Configuração OK! O sistema de autenticação está pronto.';
+            } else {
+                summary.innerHTML = '⚠️ Problemas Detectados! Siga as instruções acima para corrigir.';
+                
+                const help = document.createElement('div');
+                help.className = 'help-text';
+                help.innerHTML = `
+                    <strong>📋 Próximos Passos:</strong><br><br>
+                    ${!hasUrl ? '1. Configure a variável <code>VITE_SUPABASE_URL</code><br>' : ''}
+                    ${!hasKey ? '2. Configure a variável <code>VITE_SUPABASE_ANON_KEY</code><br>' : ''}
+                    3. Leia o arquivo <code>CONFIGURAR-CLOUDFLARE.md</code> na raiz do projeto<br>
+                    4. Após configurar, faça um novo deploy no Cloudflare<br>
+                    5. Aguarde 2-3 minutos e teste novamente
+                `;
+                results.appendChild(help);
+            }
+            
+            results.appendChild(summary);
+        }, 500);
+    </script>
+</body>
+</html>

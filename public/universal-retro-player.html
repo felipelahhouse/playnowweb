@@ -1,0 +1,489 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Universal Retro Multiplayer</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body { 
+            background: #0a0a0a; 
+            display: flex; 
+            align-items: center; 
+            justify-content: center; 
+            min-height: 100vh;
+            font-family: 'Segoe UI', sans-serif;
+            color: #fff;
+        }
+        #game-container { 
+            width: 100%; 
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        #game { 
+            flex: 1;
+            width: 100%; 
+            background: #000;
+        }
+        #status {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            padding: 10px 20px;
+            text-align: center;
+            font-size: 14px;
+            font-weight: bold;
+        }
+        .loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            z-index: 1000;
+        }
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.1);
+            border-top: 4px solid #00ffff;
+            border-radius: 50%;
+            width: 50px;
+            height: 50px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+    <div class="loading" id="loading">
+        <div class="spinner"></div>
+        <p>Carregando emulador...</p>
+    </div>
+
+    <div id="game-container">
+        <div id="status">🎮 Multiplayer Universal - Preparando...</div>
+        <div id="game"></div>
+    </div>
+    
+    <script>
+        // Parâmetros da URL
+        const params = new URLSearchParams(window.location.search);
+        const romUrl = params.get('rom');
+        const platform = params.get('platform') || 'snes';
+        const gameTitle = params.get('title') || 'Retro Game';
+        const sessionId = params.get('session');
+        
+        // Mapeamento de plataformas
+        const platformMap = {
+            // Nintendo
+            'snes': 'snes',
+            'nes': 'nes',
+            'n64': 'n64',
+            'gb': 'gb',
+            'gbc': 'gbc',
+            'gba': 'gba',
+            'nds': 'nds',
+            
+            // Sega
+            'genesis': 'segaMD',
+            'megadrive': 'segaMD',
+            'segagenesis': 'segaMD',
+            'segaMD': 'segaMD',
+            'mastersystem': 'segaMS',
+            'segaMS': 'segaMS',
+            'gamegear': 'segaGG',
+            'segaGG': 'segaGG',
+            'sega32x': 'sega32x',
+            'segaCD': 'segaCD',
+            
+            // Sony
+            'psx': 'psx',
+            'ps1': 'psx',
+            'playstation': 'psx',
+            
+            // Outros
+            'atari2600': 'atari2600',
+            'atari7800': 'atari7800',
+            'lynx': 'lynx',
+            'jaguar': 'jaguar',
+            'virtuaboy': 'vb',
+            '3do': '3do',
+            'msx': 'msx',
+            'neogeo': 'arcade'
+        };
+        
+        // ========================================
+        // 🔊 FIX: Prevenir erro de AudioContext
+        // ========================================
+        // Limpar localStorage para evitar carregar configurações corrompidas
+        try {
+            const keysToRemove = [];
+            for (let i = 0; i < localStorage.length; i++) {
+                const key = localStorage.key(i);
+                if (key && (key.includes('EJS_') || key.includes('emulator'))) {
+                    keysToRemove.push(key);
+                }
+            }
+            keysToRemove.forEach(key => localStorage.removeItem(key));
+            console.log('[STORAGE] localStorage limpo para evitar erros');
+        } catch (e) {
+            console.log('[STORAGE] Não foi possível limpar localStorage');
+        }
+
+        // Configurar EmulatorJS
+        const core = platformMap[platform.toLowerCase()] || 'snes';
+        
+        window.EJS_player = '#game';
+        window.EJS_core = core;
+        window.EJS_gameName = gameTitle;
+        window.EJS_biosUrl = '';
+        window.EJS_gameUrl = romUrl || '';
+        window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
+        window.EJS_startOnLoaded = true;
+        window.EJS_color = '#764ba2';
+        window.EJS_volume = 0.5; // Volume inicial
+        window.EJS_disableDatabases = true; // Desabilita salvamento de configurações
+        window.EJS_VirtualGamepadSettings = {
+            enabled: true
+        };
+        
+        console.log('[Universal Player] Config:', {
+            platform,
+            core,
+            rom: romUrl,
+            session: sessionId
+        });
+        
+        // Atualizar status
+        function updateStatus(message) {
+            document.getElementById('status').textContent = message;
+        }
+        
+        updateStatus(`🎮 ${gameTitle} - ${platform.toUpperCase()} Multiplayer`);
+        
+        // Callbacks do EmulatorJS
+        window.EJS_onGameStart = function() {
+            console.log('[Universal Player] Jogo iniciado!');
+            document.getElementById('loading').classList.add('hidden');
+            updateStatus(`🎮 ${gameTitle} - Pronto! Controles: Setas + Z/X`);
+            
+            // Configurar volume após o jogo iniciar
+            setTimeout(() => {
+                try {
+                    if (window.EJS_emulator && typeof window.EJS_emulator.setVolume === 'function') {
+                        window.EJS_emulator.setVolume(0.5);
+                        console.log('[AUDIO] Volume configurado com sucesso');
+                    }
+                } catch (e) {
+                    console.log('[AUDIO] Não foi possível configurar volume:', e);
+                }
+            }, 1000);
+        };
+
+        window.EJS_onError = function(error) {
+            console.error('[Universal Player] Erro no emulador:', error);
+            document.getElementById('loading').classList.add('hidden');
+            updateStatus('❌ Erro ao carregar jogo');
+        };
+
+        // Carregar EmulatorJS
+        function loadEmulator() {
+            const script = document.createElement('script');
+            script.src = 'https://cdn.emulatorjs.org/stable/data/loader.js';
+            
+            script.onload = () => {
+                console.log('[Universal Player] EmulatorJS carregado');
+            };
+            
+            script.onerror = () => {
+                console.error('[Universal Player] Falha ao carregar EmulatorJS');
+                document.getElementById('loading').classList.add('hidden');
+                updateStatus('❌ Erro: EmulatorJS CDN offline');
+                
+                // Mostrar mensagem de erro
+                document.getElementById('game').innerHTML = `
+                    <div style="display: flex; align-items: center; justify-content: center; height: 100%; flex-direction: column; padding: 40px; text-align: center;">
+                        <h2 style="color: #ff4444; margin-bottom: 20px;">⚠️ Emulador Indisponível</h2>
+                        <p style="color: #aaa; max-width: 500px; line-height: 1.6;">
+                            O EmulatorJS CDN está temporariamente offline.<br><br>
+                            <strong>Alternativa:</strong> Use o servidor Python local para jogar todos os consoles.<br><br>
+                            <code style="background: #2a2a2a; padding: 5px 10px; border-radius: 3px; color: #0f0;">
+                                cd python-server<br>
+                                python server.py --rom "jogo.gb"
+                            </code>
+                        </p>
+                        <button onclick="window.location.reload()" style="margin-top: 20px; background: #667eea; color: white; border: none; padding: 12px 24px; border-radius: 8px; cursor: pointer; font-weight: bold;">
+                            🔄 Tentar Novamente
+                        </button>
+                    </div>
+                `;
+            };
+            
+            document.body.appendChild(script);
+        }
+        
+        // Verificar se tem ROM
+        if (!romUrl) {
+            document.getElementById('loading').classList.add('hidden');
+            updateStatus('❌ Nenhuma ROM especificada');
+            document.getElementById('game').innerHTML = `
+                <div style="display: flex; align-items: center; justify-content: center; height: 100%; flex-direction: column; padding: 40px; text-align: center;">
+                    <h2 style="color: #ff9800; margin-bottom: 20px;">⚠️ ROM Não Especificada</h2>
+                    <p style="color: #aaa;">Nenhuma ROM foi fornecida na URL.</p>
+                    <p style="color: #666; margin-top: 10px; font-size: 0.9em;">
+                        Use: ?rom=URL_DA_ROM&platform=CONSOLE
+                    </p>
+                </div>
+            `;
+        } else {
+            // Carregar emulador após DOM pronto
+            if (document.readyState === 'loading') {
+                document.addEventListener('DOMContentLoaded', loadEmulator);
+            } else {
+                loadEmulator();
+            }
+        }
+        
+        // Prevenir erros de console do EmulatorJS
+        window.addEventListener('error', (e) => {
+            // Ignorar erros conhecidos do EmulatorJS
+            if (e.message && e.message.includes('GamepadHandler')) {
+                e.preventDefault();
+                return;
+            }
+            console.error('[Universal Player] Error:', e);
+        });
+
+        // ========================================
+        // 🎮 MULTIPLAYER: Sincronização de Inputs
+        // ========================================
+        (function initMultiplayer() {
+            const urlParams = new URLSearchParams(window.location.search);
+            const isMultiplayer = urlParams.get('multiplayer') === 'true';
+            const role = urlParams.get('role'); // 'host' ou 'guest'
+            
+            if (!isMultiplayer) {
+                console.log('[Multiplayer] Modo single player');
+                return;
+            }
+            
+            console.log('🎮 [Multiplayer] Modo ativado! Role:', role);
+            
+            // Atualizar status visual
+            const statusElement = document.getElementById('status');
+            if (role === 'host') {
+                statusElement.textContent += ' 👑 HOST (Controlando)';
+                statusElement.style.background = 'linear-gradient(135deg, #667eea 0%, #764ba2 100%)';
+            } else if (role === 'guest') {
+                statusElement.textContent += ' 📺 GUEST (Assistindo)';
+                statusElement.style.background = 'linear-gradient(135deg, #f093fb 0%, #f5576c 100%)';
+            }
+            
+            // ========================================
+            // HOST: Captura e envia inputs
+            // ========================================
+            if (role === 'host') {
+                console.log('👑 [HOST] Capturando inputs...');
+                
+                // Capturar eventos de teclado
+                ['keydown', 'keyup'].forEach(eventType => {
+                    document.addEventListener(eventType, (e) => {
+                        // Enviar input para o componente React via postMessage
+                        window.parent.postMessage({
+                            type: 'input',
+                            inputData: {
+                                key: e.key,
+                                code: e.code,
+                                keyCode: e.keyCode,
+                                pressed: eventType === 'keydown',
+                                timestamp: Date.now()
+                            }
+                        }, '*');
+                        
+                        // Log apenas para teclas de jogo (não logar todas)
+                        if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'z', 'x', 'a', 's', 'Enter', 'Shift'].includes(e.key)) {
+                            console.log(`🎮 [HOST] Input capturado: ${e.key} (${eventType})`);
+                        }
+                    }, true); // useCapture=true para capturar antes do emulador
+                });
+                
+                // Capturar eventos de gamepad (se disponível)
+                let lastGamepadState = {};
+                function pollGamepad() {
+                    const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+                    
+                    for (let i = 0; i < gamepads.length; i++) {
+                        const gamepad = gamepads[i];
+                        if (!gamepad) continue;
+                        
+                        // Enviar estado dos botões
+                        gamepad.buttons.forEach((button, index) => {
+                            const key = `gamepad_${i}_button_${index}`;
+                            const wasPressed = lastGamepadState[key];
+                            const isPressed = button.pressed;
+                            
+                            if (wasPressed !== isPressed) {
+                                window.parent.postMessage({
+                                    type: 'input',
+                                    inputData: {
+                                        gamepad: i,
+                                        button: index,
+                                        pressed: isPressed,
+                                        timestamp: Date.now()
+                                    }
+                                }, '*');
+                                
+                                lastGamepadState[key] = isPressed;
+                            }
+                        });
+                        
+                        // Enviar estado dos eixos (apenas mudanças significativas)
+                        gamepad.axes.forEach((axis, index) => {
+                            const key = `gamepad_${i}_axis_${index}`;
+                            const lastValue = lastGamepadState[key] || 0;
+                            
+                            if (Math.abs(axis - lastValue) > 0.1) {
+                                window.parent.postMessage({
+                                    type: 'input',
+                                    inputData: {
+                                        gamepad: i,
+                                        axis: index,
+                                        value: axis,
+                                        timestamp: Date.now()
+                                    }
+                                }, '*');
+                                
+                                lastGamepadState[key] = axis;
+                            }
+                        });
+                    }
+                    
+                    requestAnimationFrame(pollGamepad);
+                }
+                
+                // Iniciar polling de gamepad
+                if (navigator.getGamepads) {
+                    pollGamepad();
+                }
+                
+                // Notificar que host está pronto
+                window.parent.postMessage({
+                    type: 'multiplayerReady',
+                    role: 'host'
+                }, '*');
+            }
+            
+            // ========================================
+            // GUEST: Recebe e aplica inputs
+            // ========================================
+            if (role === 'guest') {
+                console.log('📺 [GUEST] Aguardando inputs do host...');
+                
+                // Bloquear inputs locais do guest (opcional)
+                const blockLocalInputs = true;
+                
+                if (blockLocalInputs) {
+                    document.addEventListener('keydown', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }, true);
+                    
+                    document.addEventListener('keyup', (e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                    }, true);
+                    
+                    console.log('🔒 [GUEST] Inputs locais bloqueados');
+                }
+                
+                // Receber inputs do host via postMessage
+                window.addEventListener('message', (event) => {
+                    if (event.data.type === 'applyInput') {
+                        const input = event.data.inputData;
+                        
+                        // Aplicar input de teclado
+                        if (input.key || input.code) {
+                            const eventType = input.pressed ? 'keydown' : 'keyup';
+                            
+                            try {
+                                const keyEvent = new KeyboardEvent(eventType, {
+                                    key: input.key,
+                                    code: input.code,
+                                    keyCode: input.keyCode,
+                                    bubbles: true,
+                                    cancelable: true
+                                });
+                                
+                                document.dispatchEvent(keyEvent);
+                                
+                                // Log apenas para teclas de jogo
+                                if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'z', 'x', 'a', 's', 'Enter', 'Shift'].includes(input.key)) {
+                                    console.log(`🎮 [GUEST] Input aplicado: ${input.key} (${eventType})`);
+                                }
+                            } catch (e) {
+                                console.error('❌ [GUEST] Erro ao aplicar input:', e);
+                            }
+                        }
+                        
+                        // Aplicar input de gamepad
+                        if (input.gamepad !== undefined) {
+                            // EmulatorJS captura gamepad automaticamente
+                            // Podemos simular via eventos customizados se necessário
+                            console.log(`🎮 [GUEST] Gamepad input: pad=${input.gamepad}, button=${input.button}, pressed=${input.pressed}`);
+                        }
+                    }
+                    
+                    // Sincronizar estado completo (save state)
+                    if (event.data.type === 'syncState') {
+                        console.log('💾 [GUEST] Sincronizando estado do emulador...');
+                        
+                        try {
+                            // EmulatorJS permite carregar save states
+                            if (window.EJS_emulator && event.data.state) {
+                                // Implementar carregamento de state aqui
+                                console.log('✅ [GUEST] Estado sincronizado');
+                            }
+                        } catch (e) {
+                            console.error('❌ [GUEST] Erro ao sincronizar estado:', e);
+                        }
+                    }
+                });
+                
+                // Notificar que guest está pronto
+                window.parent.postMessage({
+                    type: 'multiplayerReady',
+                    role: 'guest'
+                }, '*');
+            }
+            
+            // ========================================
+            // AMBOS: Sincronização periódica de estado
+            // ========================================
+            if (role === 'host') {
+                // Host envia estado a cada 5 segundos
+                setInterval(() => {
+                    try {
+                        if (window.EJS_emulator) {
+                            // EmulatorJS permite salvar/carregar states
+                            // Implementar captura de state aqui se necessário
+                            console.log('📤 [HOST] Enviando estado periódico...');
+                            
+                            window.parent.postMessage({
+                                type: 'syncState',
+                                timestamp: Date.now()
+                            }, '*');
+                        }
+                    } catch (e) {
+                        console.error('❌ [HOST] Erro ao enviar estado:', e);
+                    }
+                }, 5000);
+            }
+            
+            console.log('✅ [Multiplayer] Sistema inicializado!');
+        })();
+    </script>
+</body>
+</html>

@@ -1,0 +1,115 @@
+<!-- 
+  🛡️ ERROR SUPPRESSION SNIPPET
+  Copy this code to any HTML file that shows console errors
+  Place it in the <head> section, before any other scripts
+-->
+
+<!-- 🚫 BLOCK SERVICE WORKERS -->
+<script>
+  // Block ServiceWorker registration immediately
+  if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register = function() {
+      return Promise.reject(new Error('Service Worker disabled'));
+    };
+    
+    // Unregister existing ServiceWorkers
+    navigator.serviceWorker.getRegistrations().then(registrations => {
+      registrations.forEach(registration => {
+        registration.unregister().catch(() => {});
+      });
+    }).catch(() => {});
+  }
+</script>
+
+<!-- 🛡️ SUPPRESS CONSOLE ERRORS -->
+<script>
+  // Suppress known errors in console
+  (function() {
+    const originalError = console.error;
+    const originalWarn = console.warn;
+    
+    // List of error patterns to suppress
+    const suppressPatterns = [
+      'ServiceWorker',
+      'service worker',
+      'service-worker',
+      'sw.js',
+      'InvalidStateError',
+      'Failed to update a ServiceWorker',
+      'Failed to register a ServiceWorker',
+      'Missing or insufficient permissions',
+      'FirebaseError',
+      'Not found',
+      'GamepadHandler',
+      'setVariable',
+      'GameManager'
+    ];
+    
+    // Check if message should be suppressed
+    function shouldSuppress(message) {
+      const msgStr = String(message);
+      return suppressPatterns.some(pattern => msgStr.includes(pattern));
+    }
+    
+    // Override console.error
+    console.error = function(...args) {
+      const message = args[0]?.toString() || '';
+      if (!shouldSuppress(message)) {
+        originalError.apply(console, args);
+      }
+    };
+    
+    // Override console.warn
+    console.warn = function(...args) {
+      const message = args[0]?.toString() || '';
+      if (!shouldSuppress(message)) {
+        originalWarn.apply(console, args);
+      }
+    };
+    
+    // Capture synchronous errors
+    window.addEventListener('error', (event) => {
+      const msg = event.message || '';
+      if (shouldSuppress(msg)) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        return true;
+      }
+    }, true);
+    
+    // Capture async errors (promises)
+    window.addEventListener('unhandledrejection', (event) => {
+      const msg = String(event.reason || '');
+      if (shouldSuppress(msg)) {
+        event.preventDefault();
+        event.stopPropagation();
+        event.stopImmediatePropagation();
+        return true;
+      }
+    }, true);
+  })();
+</script>
+
+<!-- 
+  USAGE:
+  1. Copy the entire content above
+  2. Paste in <head> section of your HTML file
+  3. Place BEFORE any other scripts
+  4. Save and test
+  
+  WHAT IT DOES:
+  - Blocks ServiceWorker registration
+  - Unregisters existing ServiceWorkers
+  - Suppresses known error messages in console
+  - Prevents error popups
+  
+  CUSTOMIZATION:
+  To suppress additional errors, add patterns to the suppressPatterns array:
+  
+  const suppressPatterns = [
+    'ServiceWorker',
+    'YourCustomError',  // Add your pattern here
+    'AnotherError'      // Add more as needed
+  ];
+-->

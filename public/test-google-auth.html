@@ -1,0 +1,342 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Teste Google Sign-In - PlayNow Emulator</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+        .container {
+            background: white;
+            border-radius: 20px;
+            padding: 40px;
+            max-width: 600px;
+            width: 100%;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+        }
+        h1 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 28px;
+        }
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+            font-size: 14px;
+        }
+        .info-box {
+            background: #f8f9fa;
+            border-left: 4px solid #667eea;
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 4px;
+        }
+        .info-box h3 {
+            color: #667eea;
+            margin-bottom: 10px;
+            font-size: 16px;
+        }
+        .info-box p {
+            color: #333;
+            font-size: 14px;
+            line-height: 1.6;
+            margin: 5px 0;
+        }
+        .info-box code {
+            background: #e9ecef;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 13px;
+        }
+        .status {
+            padding: 10px 15px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+            font-size: 14px;
+        }
+        .status.info {
+            background: #e3f2fd;
+            color: #1976d2;
+            border: 1px solid #90caf9;
+        }
+        .status.success {
+            background: #e8f5e9;
+            color: #388e3c;
+            border: 1px solid #81c784;
+        }
+        .status.error {
+            background: #ffebee;
+            color: #d32f2f;
+            border: 1px solid #ef5350;
+        }
+        .status.warning {
+            background: #fff3e0;
+            color: #f57c00;
+            border: 1px solid #ffb74d;
+        }
+        button {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 10px;
+            font-size: 16px;
+            font-weight: bold;
+            cursor: pointer;
+            width: 100%;
+            margin-bottom: 15px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 10px 20px rgba(102, 126, 234, 0.3);
+        }
+        button:active {
+            transform: translateY(0);
+        }
+        button:disabled {
+            opacity: 0.6;
+            cursor: not-allowed;
+        }
+        .log {
+            background: #1e1e1e;
+            color: #00ff00;
+            padding: 15px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            margin-top: 20px;
+        }
+        .log-entry {
+            margin: 5px 0;
+            line-height: 1.4;
+        }
+        .log-entry.error {
+            color: #ff6b6b;
+        }
+        .log-entry.success {
+            color: #51cf66;
+        }
+        .log-entry.warning {
+            color: #ffd43b;
+        }
+        .log-entry.info {
+            color: #74c0fc;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Diagnóstico Google Sign-In</h1>
+        <p class="subtitle">Teste a configuração do Firebase Authentication</p>
+
+        <div class="info-box">
+            <h3>📍 Informações do Ambiente</h3>
+            <p><strong>Domínio atual:</strong> <code id="current-domain">Carregando...</code></p>
+            <p><strong>Protocolo:</strong> <code id="current-protocol">Carregando...</code></p>
+            <p><strong>Firebase Project:</strong> <code>planowemulator</code></p>
+        </div>
+
+        <div id="status-container"></div>
+
+        <button id="test-google-btn" onclick="testGoogleSignIn()">
+            🔐 Testar Login com Google
+        </button>
+
+        <button onclick="checkConfiguration()" style="background: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);">
+            🔧 Verificar Configuração
+        </button>
+
+        <div class="log" id="log"></div>
+    </div>
+
+    <script type="module">
+        import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+        import { getAuth, signInWithPopup, GoogleAuthProvider } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-auth.js';
+
+        // Configuração Firebase
+        const firebaseConfig = {
+            apiKey: "AIzaSyDmC_HF775QiX6EA3rx2xDF2XXw8zmg3yQ",
+            authDomain: "planowemulator.firebaseapp.com",
+            projectId: "planowemulator",
+            storageBucket: "planowemulator.firebasestorage.app",
+            messagingSenderId: "509464952147",
+            appId: "1:509464952147:web:59776912f625f3235cf5a6"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+
+        // Mostrar informações do ambiente
+        document.getElementById('current-domain').textContent = window.location.hostname;
+        document.getElementById('current-protocol').textContent = window.location.protocol;
+
+        // Sistema de log
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            const timestamp = new Date().toLocaleTimeString();
+            entry.textContent = `[${timestamp}] ${message}`;
+            logDiv.appendChild(entry);
+            logDiv.scrollTop = logDiv.scrollHeight;
+            console.log(`[${type.toUpperCase()}] ${message}`);
+        }
+
+        function showStatus(message, type = 'info') {
+            const container = document.getElementById('status-container');
+            const status = document.createElement('div');
+            status.className = `status ${type}`;
+            status.textContent = message;
+            container.appendChild(status);
+        }
+
+        // Verificar configuração
+        window.checkConfiguration = function() {
+            const container = document.getElementById('status-container');
+            container.innerHTML = '';
+            
+            log('🔍 Verificando configuração...', 'info');
+
+            // Verificar domínio
+            const domain = window.location.hostname;
+            const protocol = window.location.protocol;
+            
+            log(`Domínio: ${domain}`, 'info');
+            log(`Protocolo: ${protocol}`, 'info');
+
+            // Verificar se está em HTTPS (necessário para produção)
+            if (protocol === 'https:' || domain === 'localhost') {
+                showStatus('✅ Protocolo correto (HTTPS ou localhost)', 'success');
+                log('✅ Protocolo OK', 'success');
+            } else {
+                showStatus('❌ ERRO: Google Sign-In requer HTTPS em produção', 'error');
+                log('❌ Protocolo inválido - use HTTPS', 'error');
+            }
+
+            // Verificar se Firebase está inicializado
+            if (auth) {
+                showStatus('✅ Firebase Auth inicializado', 'success');
+                log('✅ Firebase Auth OK', 'success');
+            } else {
+                showStatus('❌ ERRO: Firebase Auth não inicializado', 'error');
+                log('❌ Firebase Auth falhou', 'error');
+            }
+
+            // Verificar domínios autorizados esperados
+            const expectedDomains = [
+                'playnowemulator.com',
+                'www.playnowemulator.com',
+                'planowemulator.web.app',
+                'planowemulator.firebaseapp.com',
+                'localhost'
+            ];
+
+            log('📋 Domínios que devem estar autorizados:', 'info');
+            expectedDomains.forEach(d => log(`  - ${d}`, 'info'));
+
+            if (!expectedDomains.includes(domain)) {
+                showStatus(`⚠️ AVISO: Domínio "${domain}" não está na lista esperada`, 'warning');
+                log(`⚠️ Domínio "${domain}" pode não estar autorizado`, 'warning');
+            } else {
+                showStatus(`✅ Domínio "${domain}" está na lista esperada`, 'success');
+                log(`✅ Domínio "${domain}" reconhecido`, 'success');
+            }
+
+            log('✅ Verificação concluída', 'success');
+        };
+
+        // Testar Google Sign-In
+        window.testGoogleSignIn = async function() {
+            const btn = document.getElementById('test-google-btn');
+            btn.disabled = true;
+            btn.textContent = '⏳ Testando...';
+
+            const container = document.getElementById('status-container');
+            container.innerHTML = '';
+
+            log('🚀 Iniciando teste de Google Sign-In...', 'info');
+
+            try {
+                const provider = new GoogleAuthProvider();
+                provider.setCustomParameters({ prompt: 'select_account' });
+
+                log('📱 Abrindo pop-up de autenticação...', 'info');
+                showStatus('📱 Aguardando autenticação no pop-up...', 'info');
+
+                const result = await signInWithPopup(auth, provider);
+                
+                log('✅ Login bem-sucedido!', 'success');
+                log(`👤 Usuário: ${result.user.displayName || result.user.email}`, 'success');
+                log(`📧 Email: ${result.user.email}`, 'success');
+                log(`🆔 UID: ${result.user.uid}`, 'info');
+
+                showStatus('✅ SUCESSO! Google Sign-In está funcionando corretamente!', 'success');
+                showStatus(`👤 Logado como: ${result.user.displayName || result.user.email}`, 'success');
+
+                btn.textContent = '✅ Teste Concluído com Sucesso!';
+                btn.style.background = 'linear-gradient(135deg, #51cf66 0%, #37b24d 100%)';
+
+            } catch (error) {
+                log('❌ Erro no teste:', 'error');
+                log(`Código: ${error.code}`, 'error');
+                log(`Mensagem: ${error.message}`, 'error');
+
+                let errorMsg = '';
+                let solution = '';
+
+                switch (error.code) {
+                    case 'auth/popup-closed-by-user':
+                        errorMsg = '❌ Pop-up fechado pelo usuário';
+                        solution = '💡 Tente novamente e complete o login';
+                        break;
+                    case 'auth/popup-blocked':
+                        errorMsg = '❌ Pop-up bloqueado pelo navegador';
+                        solution = '💡 Permita pop-ups para este site e tente novamente';
+                        break;
+                    case 'auth/unauthorized-domain':
+                        errorMsg = '❌ Domínio não autorizado';
+                        solution = `💡 Adicione "${window.location.hostname}" aos domínios autorizados no Firebase Console`;
+                        log('📖 Veja: CONFIGURAR_GOOGLE_SIGNIN.md - PASSO 2', 'warning');
+                        break;
+                    case 'auth/operation-not-allowed':
+                        errorMsg = '❌ Google Sign-In não está ativado';
+                        solution = '💡 Ative o Google Sign-In no Firebase Console';
+                        log('📖 Veja: CONFIGURAR_GOOGLE_SIGNIN.md - PASSO 1', 'warning');
+                        break;
+                    default:
+                        errorMsg = `❌ Erro: ${error.code}`;
+                        solution = '💡 Verifique o console para mais detalhes';
+                }
+
+                showStatus(errorMsg, 'error');
+                showStatus(solution, 'warning');
+
+                btn.textContent = '🔐 Testar Login com Google';
+                btn.disabled = false;
+            }
+        };
+
+        // Executar verificação inicial
+        log('🎮 PlayNow Emulator - Diagnóstico Google Sign-In', 'info');
+        log('━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━', 'info');
+        checkConfiguration();
+    </script>
+</body>
+</html>

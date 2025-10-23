@@ -1,0 +1,133 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    
+    // Jogos - qualquer um pode ler, apenas autenticados podem escrever
+    match /games/{gameId} {
+      allow read: if true;
+      allow create, update: if request.auth != null;
+      allow delete: if request.auth != null;
+    }
+    
+    // Usuários - qualquer autenticado pode ler, criar seu próprio usuário
+    match /users/{userId} {
+      allow read: if true;
+      // Permitir criação se autenticado E o ID do documento for o mesmo do usuário
+      allow create: if request.auth != null && request.auth.uid == userId;
+      // Permitir atualização de is_online por qualquer autenticado (para status online)
+      allow update: if request.auth != null && (
+        request.auth.uid == userId ||
+        request.resource.data.diff(resource.data).affectedKeys().hasOnly(['is_online', 'last_seen'])
+      );
+      allow delete: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Sessões de jogo multiplayer e subcoleções
+    match /game_sessions/{sessionId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update, delete: if true; // Temporário: permitir updates sem auth para sync
+      
+      // Subcoleções (players, presence, chat, game_inputs, game_sync, webrtc_signals)
+      match /{subcollection}/{document=**} {
+        allow read: if true;
+        allow write: if true; // Temporário: permitir writes sem auth para sync/inputs
+      }
+    }
+    
+    // Players nas sessões
+    match /session_players/{playerId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    
+    // Frames de streams (permite leitura/escrita para melhor performance)
+    match /live_stream_frames/{frameId} {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+    
+    // Histórico de jogos
+    match /game_history/{historyId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null;
+      allow update, delete: if request.auth != null && 
+        resource.data.userId == request.auth.uid;
+    }
+
+    // 💬 DIRECT MESSAGES - Mensagens diretas (sistema simplificado)
+    match /direct_messages/{messageId} {
+      // Permitir leitura para usuários autenticados (queries precisam disso)
+      // A query já filtra por senderId/receiverId, então é seguro
+      allow read: if request.auth != null;
+      
+      // Pode criar se estiver autenticado e for o senderId
+      allow create: if request.auth != null && 
+        request.resource.data.senderId == request.auth.uid &&
+        request.resource.data.receiverId != null &&
+        request.resource.data.message != null;
+      
+      // Pode atualizar para marcar como lida se for o receiverId
+      allow update: if request.auth != null && 
+        resource.data.receiverId == request.auth.uid &&
+        request.resource.data.keys().hasOnly(['read']);
+      
+      // Pode deletar se for o remetente
+      allow delete: if request.auth != null && 
+        resource.data.senderId == request.auth.uid;
+    }
+
+    // 👥 FRIEND REQUESTS - Solicitações de amizade
+    match /friend_requests/{requestId} {
+      // Pode ler se for sender ou receiver
+      allow read: if request.auth != null && 
+        (resource.data.senderId == request.auth.uid || 
+         resource.data.receiverId == request.auth.uid);
+      // Pode criar se estiver autenticado e for o sender
+      allow create: if request.auth != null && 
+        request.resource.data.senderId == request.auth.uid;
+      // Pode atualizar status se for o receiver
+      allow update: if request.auth != null && 
+        resource.data.receiverId == request.auth.uid;
+      // Pode deletar se for sender ou receiver
+      allow delete: if request.auth != null && 
+        (resource.data.senderId == request.auth.uid || 
+         resource.data.receiverId == request.auth.uid);
+    }
+
+    // 🤝 FRIENDSHIPS - Relações de amizade confirmadas
+    match /friendships/{friendshipId} {
+      // Pode ler se for user1 ou user2
+      allow read: if request.auth != null && 
+        (resource.data.user1Id == request.auth.uid || 
+         resource.data.user2Id == request.auth.uid);
+      // Pode criar se estiver autenticado
+      allow create: if request.auth != null;
+      // Pode deletar se for user1 ou user2
+      allow delete: if request.auth != null && 
+        (resource.data.user1Id == request.auth.uid || 
+         resource.data.user2Id == request.auth.uid);
+    }
+
+    // 🚧 SYSTEM - Configurações do sistema (manutenção, etc)
+    // Regra específica: permitir que qualquer usuário autenticado atualize a notificação de manutenção
+    // (apenas essa doc), mantendo o restante de /system restrito a admins
+    match /system/maintenance_notification {
+      allow read: if true;
+      allow write: if request.auth != null;
+    }
+
+    match /system/{document} {
+      // Todos podem ler
+      allow read: if true;
+      // Apenas admins podem escrever
+      allow write: if request.auth != null && 
+        get(/databases/$(database)/documents/users/$(request.auth.uid)).data.badge == 'admin';
+    }
+    
+    // Regra padrão: negar acesso a qualquer outro documento não especificado
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

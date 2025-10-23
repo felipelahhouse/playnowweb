@@ -1,0 +1,55 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Socket.IO Connection</title>
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+</head>
+<body>
+    <h1>Test Socket.IO Connection</h1>
+    <div id="status">Connecting...</div>
+    <div id="log"></div>
+    
+    <script>
+        const log = document.getElementById('log');
+        const status = document.getElementById('status');
+        
+        function addLog(msg) {
+            const p = document.createElement('p');
+            p.textContent = new Date().toLocaleTimeString() + ' - ' + msg;
+            log.appendChild(p);
+            console.log(msg);
+        }
+        
+        // Connect to local server
+        const socket = io('http://localhost:3000', {
+            transports: ['websocket', 'polling']
+        });
+        
+        socket.on('connect', () => {
+            status.textContent = '✅ Connected! Socket ID: ' + socket.id;
+            status.style.color = 'green';
+            addLog('✅ Connected to server');
+            addLog('Socket ID: ' + socket.id);
+            
+            // Request lobby sessions
+            socket.emit('get-lobby-sessions');
+        });
+        
+        socket.on('disconnect', () => {
+            status.textContent = '❌ Disconnected';
+            status.style.color = 'red';
+            addLog('❌ Disconnected from server');
+        });
+        
+        socket.on('connect_error', (error) => {
+            status.textContent = '❌ Connection Error';
+            status.style.color = 'red';
+            addLog('❌ Connection Error: ' + error.message);
+        });
+        
+        socket.on('lobby-sessions', (data) => {
+            addLog('📡 Received lobby sessions: ' + data.sessions.length);
+        });
+    </script>
+</body>
+</html>
