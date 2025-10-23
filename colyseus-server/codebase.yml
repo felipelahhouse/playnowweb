@@ -1,0 +1,13 @@
+build:
+  - npm install
+  - npm run build
+
+start:
+  - npm start
+
+regions:
+  - us-mia
+
+monitor:
+  health: /health
+  interval: 10
