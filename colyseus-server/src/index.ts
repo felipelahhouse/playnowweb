@@ -169,7 +169,21 @@ class GameSessionRoom extends Room<GameSessionState> {
 }
 
 const app = express();
-app.use(cors());
+
+// Configuração CORS para permitir conexões do frontend
+app.use(cors({
+  origin: [
+    'https://playnowemulator.com',
+    'https://playnowemulator.web.app',
+    'https://playnowemulator.firebaseapp.com',
+    'http://localhost:5173',
+    'http://localhost:3000'
+  ],
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+}));
+
 app.use(express.json());
 
 app.get('/health', (_req, res) => {
@@ -184,7 +198,27 @@ const port = Number(process.env.PORT ?? 2567);
 const httpServer = createServer(app);
 
 const gameServer = new Server({
-  transport: new WebSocketTransport({ server: httpServer })
+  transport: new WebSocketTransport({
+    server: httpServer,
+    verifyClient: (info, callback) => {
+      // Permitir conexões de origens específicas
+      const origin = info.origin || info.req.headers.origin;
+      const allowedOrigins = [
+        'https://playnowemulator.com',
+        'https://playnowemulator.web.app',
+        'https://playnowemulator.firebaseapp.com',
+        'http://localhost:5173',
+        'http://localhost:3000'
+      ];
+
+      if (!origin || allowedOrigins.includes(origin)) {
+        callback(true);
+      } else {
+        console.warn(`⚠️ [CORS] Conexão bloqueada de origem não permitida: ${origin}`);
+        callback(false, 403, 'Origem não permitida');
+      }
+    }
+  })
 });
 
 gameServer.define('game_session', GameSessionRoom);
