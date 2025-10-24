@@ -2,7 +2,7 @@ import { useEffect, useState, useCallback, useMemo } from 'react';
 import { X, Users, Play, Loader2, Plus, Search as SearchIcon } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
 import { useDebounce } from '../../hooks/useDebounce';
-import { useColyseusConnection } from '../../hooks/useColyseusConnection';
+// import { useColyseusConnection } from '../../hooks/useColyseusConnection'; // REMOVIDO - Usando PeerJS
 
 interface GameSession {
   id: string;
@@ -55,7 +55,8 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
   const [loadingGames, setLoadingGames] = useState(false);
   const [gameSearchTerm, setGameSearchTerm] = useState('');
   
-  // ✅ Colyseus Hook
+  // ✅ Colyseus Hook (DESABILITADO - USANDO PEERJS)
+  /*
   const {
     listRooms,
     createRoom: colyseusCreateRoom,
@@ -65,6 +66,7 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
   } = useColyseusConnection({
     autoConnect: true,
   });
+  */
 
   // ✅ OTIMIZAÇÃO: Debounce para busca
   const debouncedSearchTerm = useDebounce(searchTerm, 300);

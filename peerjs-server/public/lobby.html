@@ -1,0 +1,596 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎮 Lobby Multiplayer - PeerJS</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container {
+            max-width: 1400px;
+            margin: 0 auto;
+        }
+
+        h1 {
+            text-align: center;
+            font-size: 3em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .subtitle {
+            text-align: center;
+            font-size: 1.2em;
+            margin-bottom: 30px;
+            opacity: 0.9;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 1fr 2fr;
+            gap: 20px;
+            margin-top: 20px;
+        }
+
+        @media (max-width: 968px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+        }
+
+        .panel {
+            background: rgba(0,0,0,0.5);
+            padding: 30px;
+            border-radius: 15px;
+            backdrop-filter: blur(10px);
+            box-shadow: 0 8px 32px rgba(0,0,0,0.3);
+        }
+
+        .panel h2 {
+            margin-bottom: 20px;
+            color: #4CAF50;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+
+        .form-group {
+            margin-bottom: 20px;
+        }
+
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            font-weight: bold;
+            font-size: 1.1em;
+        }
+
+        .form-group input, .form-group select {
+            width: 100%;
+            padding: 12px;
+            font-size: 1em;
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 8px;
+            background: rgba(255,255,255,0.9);
+            color: #333;
+            transition: all 0.3s;
+        }
+
+        .form-group input:focus, .form-group select:focus {
+            outline: none;
+            border-color: #4CAF50;
+            box-shadow: 0 0 10px rgba(76, 175, 80, 0.5);
+        }
+
+        button {
+            padding: 15px 30px;
+            font-size: 1.1em;
+            border: none;
+            border-radius: 8px;
+            background: #4CAF50;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            width: 100%;
+            margin-top: 10px;
+        }
+
+        button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(76, 175, 80, 0.4);
+        }
+
+        button:active {
+            transform: translateY(0);
+        }
+
+        button:disabled {
+            background: #666;
+            cursor: not-allowed;
+            transform: none;
+        }
+
+        .status {
+            background: rgba(76, 175, 80, 0.3);
+            border: 2px solid #4CAF50;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            font-weight: bold;
+            animation: slideIn 0.3s ease-out;
+        }
+
+        .error {
+            background: rgba(244, 67, 54, 0.3);
+            border: 2px solid #f44336;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            animation: shake 0.3s ease-out;
+        }
+
+        .info {
+            background: rgba(33, 150, 243, 0.3);
+            border: 2px solid #2196F3;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        .salas-list {
+            display: grid;
+            gap: 15px;
+            max-height: 600px;
+            overflow-y: auto;
+        }
+
+        .sala-card {
+            background: rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 10px;
+            padding: 20px;
+            transition: all 0.3s;
+            cursor: pointer;
+        }
+
+        .sala-card:hover {
+            background: rgba(255,255,255,0.2);
+            border-color: #4CAF50;
+            transform: translateX(5px);
+        }
+
+        .sala-card.full {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+
+        .sala-card.full:hover {
+            transform: none;
+            border-color: rgba(255,255,255,0.3);
+        }
+
+        .sala-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+
+        .sala-name {
+            font-size: 1.3em;
+            font-weight: bold;
+            color: #4CAF50;
+        }
+
+        .sala-players {
+            background: rgba(76, 175, 80, 0.3);
+            padding: 5px 15px;
+            border-radius: 20px;
+            font-size: 0.9em;
+            font-weight: bold;
+        }
+
+        .sala-players.full {
+            background: rgba(244, 67, 54, 0.3);
+        }
+
+        .sala-info {
+            color: rgba(255,255,255,0.8);
+            font-size: 0.9em;
+        }
+
+        .peer-id-display {
+            background: rgba(0,0,0,0.3);
+            padding: 10px;
+            border-radius: 8px;
+            font-family: 'Courier New', monospace;
+            font-size: 0.9em;
+            margin: 10px 0;
+            word-break: break-all;
+        }
+
+        .empty-state {
+            text-align: center;
+            padding: 60px 20px;
+            opacity: 0.6;
+        }
+
+        .empty-state svg {
+            width: 80px;
+            height: 80px;
+            margin-bottom: 20px;
+        }
+
+        @keyframes slideIn {
+            from {
+                opacity: 0;
+                transform: translateY(-10px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+        }
+
+        .spinner {
+            border: 4px solid rgba(255,255,255,0.3);
+            border-top: 4px solid #4CAF50;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .refresh-btn {
+            background: #2196F3;
+            margin-top: 0;
+        }
+
+        .refresh-btn:hover {
+            background: #1976D2;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 Multiplayer Lobby</h1>
+        <p class="subtitle">Sistema WebRTC P2P com PeerJS</p>
+
+        <div class="main-content">
+            <!-- PAINEL ESQUERDO: CRIAR SALA -->
+            <div class="panel">
+                <h2>🏠 Criar Nova Sala</h2>
+
+                <div id="connection-status"></div>
+
+                <div class="form-group">
+                    <label>Nome da Sala:</label>
+                    <input type="text" id="room-name" placeholder="Minha Sala Legal" required>
+                </div>
+
+                <div class="form-group">
+                    <label>Jogo / Console:</label>
+                    <select id="game-select">
+                        <option value="SNES - Super Nintendo">SNES - Super Nintendo</option>
+                        <option value="NES - Nintendo">NES - Nintendo</option>
+                        <option value="GBA - Game Boy Advance">GBA - Game Boy Advance</option>
+                        <option value="GB - Game Boy">GB - Game Boy</option>
+                        <option value="Genesis - Sega">Genesis - Sega</option>
+                        <option value="N64 - Nintendo 64">N64 - Nintendo 64</option>
+                        <option value="PSX - PlayStation">PSX - PlayStation</option>
+                        <option value="Atari 2600">Atari 2600</option>
+                    </select>
+                </div>
+
+                <button onclick="criarSala()" id="btn-criar">
+                    🎮 Criar Sala e Ser o HOST
+                </button>
+
+                <div class="info" style="margin-top: 20px;">
+                    <strong>💡 Dica:</strong><br>
+                    Como HOST, você iniciará o emulador e compartilhará a tela. Os jogadores verão seu jogo e poderão controlar seus personagens!
+                </div>
+
+                <div id="peer-id-container" style="display: none;">
+                    <p style="margin-top: 20px; font-weight: bold;">Seu Peer ID:</p>
+                    <div class="peer-id-display" id="my-peer-id"></div>
+                </div>
+            </div>
+
+            <!-- PAINEL DIREITO: SALAS DISPONÍVEIS -->
+            <div class="panel">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h2>📋 Salas Disponíveis</h2>
+                    <button onclick="atualizarSalas()" class="refresh-btn" style="width: auto;">
+                        🔄 Atualizar
+                    </button>
+                </div>
+
+                <div id="salas-container">
+                    <div class="loading">
+                        <div class="spinner"></div>
+                        <p style="margin-top: 10px;">Carregando salas...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // CONFIGURAÇÃO
+        // ==========================================
+        const SERVIDOR_URL = window.location.hostname === 'localhost' 
+            ? 'http://localhost:9000'
+            : window.location.origin;
+
+        const PEER_CONFIG = {
+            host: window.location.hostname === 'localhost' ? 'localhost' : window.location.hostname,
+            port: window.location.hostname === 'localhost' ? 9000 : window.location.port || 443,
+            path: '/peerjs',
+            secure: window.location.protocol === 'https:',
+            debug: 2
+        };
+
+        console.log('🔧 Configuração:', { SERVIDOR_URL, PEER_CONFIG });
+
+        let peer = null;
+        let myPeerId = null;
+
+        // ==========================================
+        // INICIALIZAÇÃO DO PEERJS
+        // ==========================================
+        function inicializarPeer() {
+            console.log('🔌 Inicializando PeerJS...');
+            
+            peer = new Peer(PEER_CONFIG);
+
+            peer.on('open', (id) => {
+                myPeerId = id;
+                console.log('✅ Conectado ao PeerJS Server. Meu ID:', id);
+                
+                document.getElementById('connection-status').innerHTML = `
+                    <div class="status">
+                        ✅ Conectado ao servidor PeerJS!
+                    </div>
+                `;
+                
+                document.getElementById('peer-id-container').style.display = 'block';
+                document.getElementById('my-peer-id').textContent = id;
+            });
+
+            peer.on('error', (err) => {
+                console.error('❌ Erro PeerJS:', err);
+                document.getElementById('connection-status').innerHTML = `
+                    <div class="error">
+                        ❌ Erro ao conectar: ${err.message || err.type}
+                    </div>
+                `;
+            });
+
+            peer.on('disconnected', () => {
+                console.warn('⚠️ Desconectado do servidor PeerJS');
+                document.getElementById('connection-status').innerHTML = `
+                    <div class="error">
+                        ⚠️ Desconectado do servidor. Reconectando...
+                    </div>
+                `;
+                peer.reconnect();
+            });
+        }
+
+        // ==========================================
+        // CRIAR SALA
+        // ==========================================
+        async function criarSala() {
+            const roomName = document.getElementById('room-name').value.trim();
+            const game = document.getElementById('game-select').value;
+
+            if (!roomName) {
+                alert('❌ Digite um nome para a sala!');
+                return;
+            }
+
+            if (!myPeerId) {
+                alert('❌ Aguarde a conexão com o servidor PeerJS!');
+                return;
+            }
+
+            const roomId = 'room_' + Date.now() + '_' + Math.random().toString(36).substring(7);
+
+            try {
+                document.getElementById('btn-criar').disabled = true;
+                document.getElementById('btn-criar').textContent = '⏳ Criando sala...';
+
+                const response = await fetch(`${SERVIDOR_URL}/api/salas/criar`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        roomId,
+                        hostPeerId: myPeerId,
+                        name: roomName,
+                        game
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    console.log('✅ Sala criada:', data);
+                    
+                    // Salvar dados da sala no localStorage
+                    localStorage.setItem('currentRoom', JSON.stringify({
+                        roomId,
+                        isHost: true,
+                        hostPeerId: myPeerId,
+                        name: roomName,
+                        game
+                    }));
+
+                    // Redirecionar para host.html
+                    window.location.href = `host.html?room=${roomId}`;
+                } else {
+                    throw new Error(data.error || 'Erro ao criar sala');
+                }
+            } catch (error) {
+                console.error('❌ Erro ao criar sala:', error);
+                alert('❌ Erro ao criar sala: ' + error.message);
+                document.getElementById('btn-criar').disabled = false;
+                document.getElementById('btn-criar').textContent = '🎮 Criar Sala e Ser o HOST';
+            }
+        }
+
+        // ==========================================
+        // ATUALIZAR LISTA DE SALAS
+        // ==========================================
+        async function atualizarSalas() {
+            try {
+                const response = await fetch(`${SERVIDOR_URL}/api/salas`);
+                const data = await response.json();
+
+                const container = document.getElementById('salas-container');
+
+                if (!data.salas || data.salas.length === 0) {
+                    container.innerHTML = `
+                        <div class="empty-state">
+                            <svg viewBox="0 0 24 24" fill="currentColor">
+                                <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm-2 15l-5-5 1.41-1.41L10 14.17l7.59-7.59L19 8l-9 9z"/>
+                            </svg>
+                            <h3>Nenhuma sala disponível</h3>
+                            <p>Seja o primeiro a criar uma sala!</p>
+                        </div>
+                    `;
+                    return;
+                }
+
+                container.innerHTML = `<div class="salas-list"></div>`;
+                const salasList = container.querySelector('.salas-list');
+
+                data.salas.forEach(sala => {
+                    const salaCard = document.createElement('div');
+                    salaCard.className = 'sala-card' + (sala.isFull ? ' full' : '');
+                    salaCard.onclick = () => !sala.isFull && entrarNaSala(sala);
+
+                    const tempoDecorrido = Math.floor((Date.now() - sala.created) / 1000 / 60);
+
+                    salaCard.innerHTML = `
+                        <div class="sala-header">
+                            <div class="sala-name">🎮 ${sala.name}</div>
+                            <div class="sala-players ${sala.isFull ? 'full' : ''}">
+                                👥 ${sala.players}/${sala.maxPlayers}
+                            </div>
+                        </div>
+                        <div class="sala-info">
+                            <p>🕹️ <strong>${sala.game}</strong></p>
+                            <p>🆔 ID: <code>${sala.id.substring(0, 20)}...</code></p>
+                            <p>⏱️ Criada há ${tempoDecorrido} minutos</p>
+                        </div>
+                    `;
+
+                    salasList.appendChild(salaCard);
+                });
+
+                console.log(`✅ ${data.salas.length} salas carregadas`);
+            } catch (error) {
+                console.error('❌ Erro ao carregar salas:', error);
+                document.getElementById('salas-container').innerHTML = `
+                    <div class="error">
+                        ❌ Erro ao carregar salas. Tente novamente.
+                    </div>
+                `;
+            }
+        }
+
+        // ==========================================
+        // ENTRAR EM UMA SALA
+        // ==========================================
+        async function entrarNaSala(sala) {
+            if (!myPeerId) {
+                alert('❌ Aguarde a conexão com o servidor PeerJS!');
+                return;
+            }
+
+            try {
+                const response = await fetch(`${SERVIDOR_URL}/api/salas/entrar`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        roomId: sala.id,
+                        playerPeerId: myPeerId
+                    })
+                });
+
+                const data = await response.json();
+
+                if (data.success) {
+                    console.log('✅ Entrou na sala:', data);
+
+                    // Salvar dados no localStorage
+                    localStorage.setItem('currentRoom', JSON.stringify({
+                        roomId: sala.id,
+                        isHost: false,
+                        hostPeerId: sala.host,
+                        playerPeerId: myPeerId,
+                        playerIndex: data.playerIndex,
+                        name: sala.name,
+                        game: sala.game
+                    }));
+
+                    // Redirecionar para player.html
+                    window.location.href = `player.html?room=${sala.id}`;
+                } else {
+                    throw new Error(data.error || 'Erro ao entrar na sala');
+                }
+            } catch (error) {
+                console.error('❌ Erro ao entrar na sala:', error);
+                alert('❌ ' + error.message);
+                atualizarSalas(); // Atualizar lista
+            }
+        }
+
+        // ==========================================
+        // INICIALIZAÇÃO
+        // ==========================================
+        window.addEventListener('DOMContentLoaded', () => {
+            console.log('🚀 Lobby carregado');
+            inicializarPeer();
+            atualizarSalas();
+
+            // Atualizar salas a cada 5 segundos
+            setInterval(atualizarSalas, 5000);
+        });
+    </script>
+</body>
+</html>

@@ -1,6 +1,6 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { useAuth } from '../../contexts/AuthContext';
-import { useColyseusConnection } from '../../hooks/useColyseusConnection';
+// import { useColyseusConnection } from '../../hooks/useColyseusConnection'; // REMOVIDO - Usando PeerJS
 import { Loader2, Send, Volume2, Users } from 'lucide-react';
 
 interface MultiplayerPlayerProps {
@@ -39,7 +39,8 @@ export const MultiplayerPlayer: React.FC<MultiplayerPlayerProps> = ({
   const userId = propUserId || user?.id;
   const username = propUsername || user?.username;
 
-  // ========== COLYSEUS HOOK ==========
+  // ========== COLYSEUS HOOK ========== (DESABILITADO - USANDO PEERJS)
+  /*
   const {
     joinRoom,
     leaveRoom,
@@ -63,6 +64,7 @@ export const MultiplayerPlayer: React.FC<MultiplayerPlayerProps> = ({
       console.error('❌ [PLAYER] Erro:', error);
     }
   });
+  */
 
   // ========== CONECTAR À SALA ==========
   useEffect(() => {

@@ -1,0 +1,642 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🎮 PLAYER - EmulatorJS Multiplayer (PeerJS)</title>
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px;
+            min-height: 100vh;
+        }
+
+        .container { max-width: 1200px; margin: 0 auto; }
+        
+        h1 {
+            text-align: center;
+            font-size: 2.5em;
+            margin-bottom: 10px;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.3);
+        }
+
+        .subtitle {
+            text-align: center;
+            font-size: 1.2em;
+            margin-bottom: 20px;
+            opacity: 0.9;
+        }
+
+        .panel {
+            background: rgba(0,0,0,0.5);
+            padding: 25px;
+            border-radius: 15px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+        }
+
+        .panel h2 {
+            margin-bottom: 15px;
+            color: #4CAF50;
+            border-bottom: 2px solid #4CAF50;
+            padding-bottom: 10px;
+        }
+
+        .player-info {
+            background: rgba(76, 175, 80, 0.3);
+            border: 3px solid #4CAF50;
+            padding: 30px;
+            border-radius: 15px;
+            text-align: center;
+            margin-bottom: 20px;
+        }
+
+        .player-number {
+            font-size: 5em;
+            font-weight: bold;
+            color: #4CAF50;
+            text-shadow: 3px 3px 6px rgba(0,0,0,0.5);
+        }
+
+        .player-label {
+            font-size: 1.5em;
+            margin-top: 10px;
+        }
+
+        .video-container {
+            background: #000;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+            margin: 20px 0;
+            position: relative;
+        }
+
+        #remote-video {
+            width: 100%;
+            height: auto;
+            display: block;
+        }
+
+        .waiting-stream {
+            text-align: center;
+            padding: 100px 20px;
+            background: rgba(0,0,0,0.7);
+            border-radius: 15px;
+        }
+
+        .waiting-stream .spinner {
+            border: 5px solid rgba(255,255,255,0.3);
+            border-top: 5px solid #4CAF50;
+            border-radius: 50%;
+            width: 60px;
+            height: 60px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto 20px;
+        }
+
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+
+        .controls-panel {
+            background: rgba(0,0,0,0.3);
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+
+        .controls-grid {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 10px;
+            max-width: 400px;
+            margin: 20px auto;
+        }
+
+        .control-btn {
+            padding: 25px;
+            font-size: 1.3em;
+            background: rgba(255,255,255,0.1);
+            border: 2px solid rgba(255,255,255,0.3);
+            border-radius: 12px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.15s;
+            user-select: none;
+            font-weight: bold;
+        }
+
+        .control-btn:active, .control-btn.pressed {
+            background: rgba(76, 175, 80, 0.7);
+            border-color: #4CAF50;
+            transform: scale(0.95);
+        }
+
+        .control-btn.empty {
+            opacity: 0;
+            pointer-events: none;
+        }
+
+        .action-buttons {
+            display: flex;
+            gap: 15px;
+            justify-content: center;
+            margin-top: 20px;
+        }
+
+        .action-btn {
+            padding: 20px 40px;
+            font-size: 1.2em;
+            background: rgba(76, 175, 80, 0.3);
+            border: 2px solid #4CAF50;
+            border-radius: 12px;
+            color: white;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-weight: bold;
+        }
+
+        .action-btn:active, .action-btn.pressed {
+            background: rgba(76, 175, 80, 0.7);
+            transform: scale(0.95);
+        }
+
+        .keyboard-info {
+            background: rgba(33, 150, 243, 0.3);
+            border: 2px solid #2196F3;
+            padding: 20px;
+            border-radius: 12px;
+            margin: 20px 0;
+        }
+
+        .keyboard-info h3 {
+            margin-bottom: 10px;
+        }
+
+        .key-map {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+            gap: 10px;
+            margin-top: 15px;
+        }
+
+        .key-item {
+            background: rgba(0,0,0,0.3);
+            padding: 10px;
+            border-radius: 8px;
+            text-align: center;
+            font-size: 0.9em;
+        }
+
+        .key-item strong {
+            color: #4CAF50;
+            display: block;
+            margin-bottom: 5px;
+        }
+
+        .status {
+            background: rgba(76, 175, 80, 0.3);
+            border: 2px solid #4CAF50;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            text-align: center;
+            font-weight: bold;
+        }
+
+        .error {
+            background: rgba(244, 67, 54, 0.3);
+            border: 2px solid #f44336;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+            text-align: center;
+        }
+
+        .info {
+            background: rgba(33, 150, 243, 0.3);
+            border: 2px solid #2196F3;
+            padding: 15px;
+            border-radius: 8px;
+            margin: 15px 0;
+        }
+
+        button {
+            padding: 15px 30px;
+            font-size: 1.1em;
+            border: none;
+            border-radius: 8px;
+            background: #4CAF50;
+            color: white;
+            cursor: pointer;
+            font-weight: bold;
+            transition: all 0.3s;
+            margin: 5px;
+        }
+
+        button:hover {
+            background: #45a049;
+            transform: translateY(-2px);
+        }
+
+        button.danger {
+            background: #f44336;
+        }
+
+        button.danger:hover {
+            background: #da190b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🎮 PLAYER - Multiplayer Room</h1>
+        <p class="subtitle">Assista e controle via WebRTC P2P</p>
+
+        <!-- INFORMAÇÕES DO JOGADOR -->
+        <div class="player-info">
+            <div class="player-number" id="player-number">?</div>
+            <div class="player-label">JOGADOR <span id="player-label">-</span></div>
+        </div>
+
+        <!-- STATUS -->
+        <div id="status-container"></div>
+
+        <!-- VÍDEO DO HOST -->
+        <div class="panel">
+            <h2>📺 Tela do HOST</h2>
+            <div class="video-container">
+                <div class="waiting-stream" id="waiting-stream">
+                    <div class="spinner"></div>
+                    <h3>Aguardando stream do HOST...</h3>
+                    <p>O HOST ainda não iniciou o compartilhamento de tela</p>
+                </div>
+                <video id="remote-video" autoplay playsinline style="display: none;"></video>
+            </div>
+        </div>
+
+        <!-- CONTROLES -->
+        <div class="panel">
+            <h2>🎮 Controles</h2>
+            
+            <div class="info">
+                <strong>💡 Como jogar:</strong><br>
+                Use os botões na tela ou as teclas do seu teclado (veja o mapeamento abaixo).
+                Seus comandos serão enviados para o HOST em tempo real!
+            </div>
+
+            <!-- CONTROLES TOUCH/MOUSE -->
+            <div class="controls-panel">
+                <h3 style="text-align: center; margin-bottom: 15px;">Direcionais</h3>
+                <div class="controls-grid">
+                    <div class="control-btn empty"></div>
+                    <div class="control-btn" data-btn="up" onmousedown="pressButton('up')" onmouseup="releaseButton('up')" ontouchstart="pressButton('up')" ontouchend="releaseButton('up')">
+                        ⬆️
+                    </div>
+                    <div class="control-btn empty"></div>
+                    
+                    <div class="control-btn" data-btn="left" onmousedown="pressButton('left')" onmouseup="releaseButton('left')" ontouchstart="pressButton('left')" ontouchend="releaseButton('left')">
+                        ⬅️
+                    </div>
+                    <div class="control-btn empty"></div>
+                    <div class="control-btn" data-btn="right" onmousedown="pressButton('right')" onmouseup="releaseButton('right')" ontouchstart="pressButton('right')" ontouchend="releaseButton('right')">
+                        ➡️
+                    </div>
+                    
+                    <div class="control-btn empty"></div>
+                    <div class="control-btn" data-btn="down" onmousedown="pressButton('down')" onmouseup="releaseButton('down')" ontouchstart="pressButton('down')" ontouchend="releaseButton('down')">
+                        ⬇️
+                    </div>
+                    <div class="control-btn empty"></div>
+                </div>
+
+                <div class="action-buttons">
+                    <div class="action-btn" data-btn="b" onmousedown="pressButton('b')" onmouseup="releaseButton('b')" ontouchstart="pressButton('b')" ontouchend="releaseButton('b')">
+                        B
+                    </div>
+                    <div class="action-btn" data-btn="a" onmousedown="pressButton('a')" onmouseup="releaseButton('a')" ontouchstart="pressButton('a')" ontouchend="releaseButton('a')">
+                        A
+                    </div>
+                    <div class="action-btn" data-btn="start" onmousedown="pressButton('start')" onmouseup="releaseButton('start')" ontouchstart="pressButton('start')" ontouchend="releaseButton('start')">
+                        START
+                    </div>
+                    <div class="action-btn" data-btn="select" onmousedown="pressButton('select')" onmouseup="releaseButton('select')" ontouchstart="pressButton('select')" ontouchend="releaseButton('select')">
+                        SELECT
+                    </div>
+                </div>
+            </div>
+
+            <!-- MAPEAMENTO DE TECLADO -->
+            <div class="keyboard-info" id="keyboard-info">
+                <h3>⌨️ Controles do Teclado</h3>
+                <div class="key-map" id="key-map">
+                    <!-- Será preenchido dinamicamente -->
+                </div>
+            </div>
+
+            <button onclick="sairDaSala()" class="danger">
+                ❌ Sair da Sala
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // ==========================================
+        // CONFIGURAÇÃO
+        // ==========================================
+        const SERVIDOR_URL = window.location.hostname === 'localhost' 
+            ? 'http://localhost:9000'
+            : window.location.origin;
+
+        const PEER_CONFIG = {
+            host: window.location.hostname === 'localhost' ? 'localhost' : window.location.hostname,
+            port: window.location.hostname === 'localhost' ? 9000 : window.location.port || 443,
+            path: '/peerjs',
+            secure: window.location.protocol === 'https:',
+            debug: 2
+        };
+
+        // Mapeamento de teclas por jogador
+        const PLAYER_KEYS = {
+            1: { up: 'ArrowUp', down: 'ArrowDown', left: 'ArrowLeft', right: 'ArrowRight', a: 'Z', b: 'X', start: 'Enter', select: 'Shift' },
+            2: { up: 'W', down: 'S', left: 'A', right: 'D', a: 'T', b: 'Y', start: 'G', select: 'H' },
+            3: { up: 'I', down: 'K', left: 'J', right: 'L', a: 'N', b: 'M', start: 'B', select: 'V' },
+            4: { up: 'Numpad8', down: 'Numpad5', left: 'Numpad4', right: 'Numpad6', a: 'Numpad1', b: 'Numpad2', start: 'Numpad0', select: 'NumpadDecimal' }
+        };
+
+        let peer = null;
+        let roomData = null;
+        let dataConnection = null;
+        let mediaCall = null;
+        let myKeys = null;
+
+        // ==========================================
+        // INICIALIZAÇÃO
+        // ==========================================
+        window.addEventListener('DOMContentLoaded', async () => {
+            const urlParams = new URLSearchParams(window.location.search);
+            const roomId = urlParams.get('room');
+
+            if (!roomId) {
+                alert('❌ ID da sala não encontrado!');
+                window.location.href = 'lobby.html';
+                return;
+            }
+
+            const storedData = localStorage.getItem('currentRoom');
+            if (!storedData) {
+                alert('❌ Dados da sala não encontrados!');
+                window.location.href = 'lobby.html';
+                return;
+            }
+
+            roomData = JSON.parse(storedData);
+
+            if (roomData.roomId !== roomId || roomData.isHost) {
+                alert('❌ Você não é um jogador desta sala!');
+                window.location.href = 'lobby.html';
+                return;
+            }
+
+            // Atualizar interface
+            document.getElementById('player-number').textContent = roomData.playerIndex;
+            document.getElementById('player-label').textContent = roomData.playerIndex;
+
+            // Obter mapeamento de teclas
+            myKeys = PLAYER_KEYS[roomData.playerIndex];
+            mostrarMapeamentoTeclas();
+
+            showStatus('🔌 Conectando ao PeerJS...', 'info');
+            
+            // Inicializar PeerJS
+            inicializarPeer();
+        });
+
+        function mostrarMapeamentoTeclas() {
+            if (!myKeys) return;
+
+            const keyMap = document.getElementById('key-map');
+            keyMap.innerHTML = `
+                <div class="key-item"><strong>⬆️</strong> ${myKeys.up}</div>
+                <div class="key-item"><strong>⬇️</strong> ${myKeys.down}</div>
+                <div class="key-item"><strong>⬅️</strong> ${myKeys.left}</div>
+                <div class="key-item"><strong>➡️</strong> ${myKeys.right}</div>
+                <div class="key-item"><strong>A</strong> ${myKeys.a}</div>
+                <div class="key-item"><strong>B</strong> ${myKeys.b}</div>
+                <div class="key-item"><strong>START</strong> ${myKeys.start}</div>
+                <div class="key-item"><strong>SELECT</strong> ${myKeys.select}</div>
+            `;
+        }
+
+        function showStatus(message, type = 'info') {
+            const container = document.getElementById('status-container');
+            const className = type === 'error' ? 'error' : type === 'success' ? 'status' : 'info';
+            container.innerHTML = `<div class="${className}">${message}</div>`;
+            console.log(`[${type.toUpperCase()}]`, message);
+        }
+
+        // ==========================================
+        // PEERJS
+        // ==========================================
+        function inicializarPeer() {
+            peer = new Peer(roomData.playerPeerId, PEER_CONFIG);
+
+            peer.on('open', (id) => {
+                console.log('✅ Conectado ao PeerJS. Meu ID:', id);
+                showStatus('✅ Conectado! Aguardando HOST...', 'success');
+                
+                // Conectar ao HOST
+                conectarAoHost();
+            });
+
+            peer.on('error', (err) => {
+                console.error('❌ Erro PeerJS:', err);
+                showStatus(`❌ Erro: ${err.message || err.type}`, 'error');
+            });
+        }
+
+        function conectarAoHost() {
+            console.log('🔗 Conectando ao HOST:', roomData.hostPeerId);
+
+            // Conexão de dados
+            dataConnection = peer.connect(roomData.hostPeerId, {
+                reliable: true
+            });
+
+            dataConnection.on('open', () => {
+                console.log('✅ Conectado ao HOST via dados');
+                showStatus('✅ Conectado ao HOST! Aguardando stream...', 'success');
+                
+                // Chamar HOST para receber vídeo
+                chamarHost();
+            });
+
+            dataConnection.on('data', (data) => {
+                handleHostData(data);
+            });
+
+            dataConnection.on('close', () => {
+                console.warn('⚠️ Conexão com HOST fechada');
+                showStatus('⚠️ Desconectado do HOST', 'error');
+            });
+
+            dataConnection.on('error', (err) => {
+                console.error('❌ Erro na conexão:', err);
+                showStatus(`❌ Erro: ${err.message}`, 'error');
+            });
+        }
+
+        function chamarHost() {
+            console.log('📞 Chamando HOST para vídeo...');
+
+            // Fazer chamada de vídeo (sem enviar stream, apenas receber)
+            mediaCall = peer.call(roomData.hostPeerId, new MediaStream());
+
+            mediaCall.on('stream', (remoteStream) => {
+                console.log('✅ Stream recebido do HOST!');
+                showStatus('✅ Recebendo stream do HOST!', 'success');
+                
+                const video = document.getElementById('remote-video');
+                video.srcObject = remoteStream;
+                video.style.display = 'block';
+                document.getElementById('waiting-stream').style.display = 'none';
+            });
+
+            mediaCall.on('error', (err) => {
+                console.error('❌ Erro na chamada de vídeo:', err);
+                showStatus(`❌ Erro ao receber vídeo: ${err.message}`, 'error');
+            });
+        }
+
+        function handleHostData(data) {
+            console.log('📨 Dados do HOST:', data);
+
+            if (data.type === 'welcome') {
+                showStatus(`✅ ${data.message}`, 'success');
+            } else if (data.type === 'stream-started') {
+                showStatus(`📺 ${data.message}`, 'info');
+            } else if (data.type === 'room-closed') {
+                alert('❌ ' + data.message);
+                window.location.href = 'lobby.html';
+            }
+        }
+
+        // ==========================================
+        // CONTROLES
+        // ==========================================
+        function pressButton(button) {
+            if (!dataConnection || !dataConnection.open) {
+                console.warn('⚠️ Não conectado ao HOST');
+                return;
+            }
+
+            // Adicionar classe visual
+            const btn = document.querySelector(`[data-btn="${button}"]`);
+            if (btn) btn.classList.add('pressed');
+
+            // Enviar comando para o HOST
+            dataConnection.send({
+                type: 'input',
+                button: button,
+                action: 'keydown'
+            });
+
+            console.log(`🎮 Pressionou: ${button}`);
+        }
+
+        function releaseButton(button) {
+            if (!dataConnection || !dataConnection.open) return;
+
+            // Remover classe visual
+            const btn = document.querySelector(`[data-btn="${button}"]`);
+            if (btn) btn.classList.remove('pressed');
+
+            // Enviar comando para o HOST
+            dataConnection.send({
+                type: 'input',
+                button: button,
+                action: 'keyup'
+            });
+
+            console.log(`🎮 Soltou: ${button}`);
+        }
+
+        // Suporte a teclado
+        window.addEventListener('keydown', (e) => {
+            if (!myKeys) return;
+
+            const key = e.key.toUpperCase();
+            
+            // Encontrar qual botão corresponde a esta tecla
+            for (const [button, mappedKey] of Object.entries(myKeys)) {
+                if (mappedKey.toUpperCase() === key || mappedKey === e.code) {
+                    e.preventDefault();
+                    pressButton(button);
+                    break;
+                }
+            }
+        });
+
+        window.addEventListener('keyup', (e) => {
+            if (!myKeys) return;
+
+            const key = e.key.toUpperCase();
+            
+            for (const [button, mappedKey] of Object.entries(myKeys)) {
+                if (mappedKey.toUpperCase() === key || mappedKey === e.code) {
+                    e.preventDefault();
+                    releaseButton(button);
+                    break;
+                }
+            }
+        });
+
+        // ==========================================
+        // SAIR DA SALA
+        // ==========================================
+        async function sairDaSala() {
+            if (!confirm('❌ Tem certeza que deseja sair da sala?')) {
+                return;
+            }
+
+            try {
+                // Notificar servidor
+                await fetch(`${SERVIDOR_URL}/api/salas/sair`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        roomId: roomData.roomId,
+                        playerPeerId: roomData.playerPeerId
+                    })
+                });
+
+                // Fechar conexões
+                if (dataConnection) dataConnection.close();
+                if (mediaCall) mediaCall.close();
+                if (peer) peer.destroy();
+
+                localStorage.removeItem('currentRoom');
+                window.location.href = 'lobby.html';
+            } catch (error) {
+                console.error('❌ Erro ao sair:', error);
+                window.location.href = 'lobby.html';
+            }
+        }
+
+        // Limpar ao sair
+        window.addEventListener('beforeunload', () => {
+            if (peer) peer.destroy();
+        });
+
+        // Prevenir zoom em mobile
+        document.addEventListener('gesturestart', (e) => e.preventDefault());
+    </script>
+</body>
+</html>
