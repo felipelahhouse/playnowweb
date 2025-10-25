@@ -119,7 +119,7 @@ app.use('/roms', express.static('public/roms', {
 // ============================================================
 const peerServer = ExpressPeerServer(httpServer, {
   debug: true, // ✅ Sempre ativar debug para ver logs
-  path: '/peerjs', // ✅ Path completo
+  path: '/', // ✅ Path interno do PeerJS (será prefixado por /peerjs)
   allow_discovery: true,
   proxied: true, // ✅ Importante para Render.com (reverse proxy)
   alive_timeout: 60000,
