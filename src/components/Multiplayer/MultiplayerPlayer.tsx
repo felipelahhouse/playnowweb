@@ -3,11 +3,12 @@
  * Componente para assistir e controlar sessão multiplayer
  */
 
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import { usePeerJSPlayer } from '../../hooks/usePeerJSPlayer';
-import { doc, onSnapshot } from 'firebase/firestore';
+import { doc, onSnapshot, setDoc, serverTimestamp, updateDoc, arrayRemove, deleteDoc } from 'firebase/firestore';
 import { db } from '../../lib/firebase';
 import { Loader2, Wifi, X, Gamepad2, AlertCircle } from 'lucide-react';
+import { useAuth } from '../../contexts/AuthContext';
 
 interface MultiplayerPlayerProps {
   sessionId: string;
@@ -24,6 +25,9 @@ export const MultiplayerPlayer: React.FC<MultiplayerPlayerProps> = ({
   const [hostPeerId, setHostPeerId] = useState<string | null>(null);
   const [gameTitle, setGameTitle] = useState<string>('');
   const [sessionNotFound, setSessionNotFound] = useState(false);
+  const cleanupDoneRef = useRef(false);
+  const { user: authUser } = useAuth();
+  const playerDisplayName = authUser?.username || userId;
 
   // 📡 Buscar HOST PeerID do Firestore
   useEffect(() => {
@@ -58,6 +62,34 @@ export const MultiplayerPlayer: React.FC<MultiplayerPlayerProps> = ({
     return () => unsubscribe();
   }, [sessionId]);
 
+    // 📌 Sincronizar player na subcoleção para que o host visualize presença
+    useEffect(() => {
+      if (!sessionId || !userId || sessionNotFound) {
+        return;
+      }
+
+      const syncPresence = async () => {
+        try {
+          const now = serverTimestamp();
+          await setDoc(
+            doc(db, 'multiplayer_sessions', sessionId, 'players', userId),
+            {
+              username: playerDisplayName,
+              isReady: true,
+              isHost: false,
+              lastActive: now
+            },
+            { merge: true }
+          );
+          console.log('[PLAYER] 📝 Presença sincronizada na subcoleção players');
+        } catch (presenceError) {
+          console.error('[PLAYER] ❌ Erro ao sincronizar presença do player:', presenceError);
+        }
+      };
+
+      syncPresence();
+    }, [playerDisplayName, sessionId, sessionNotFound, userId]);
+
   // 🎮 PeerJS Hook - PLAYER
   const { 
     peerId,
@@ -82,6 +114,64 @@ export const MultiplayerPlayer: React.FC<MultiplayerPlayerProps> = ({
       console.log('❌ [PLAYER] Desconectado');
     }
   });
+
+  const removePlayerFromSession = useCallback(async () => {
+    if (cleanupDoneRef.current) {
+      return;
+    }
+    cleanupDoneRef.current = true;
+
+    try {
+      await updateDoc(doc(db, 'multiplayer_sessions', sessionId), {
+        players: arrayRemove(userId)
+      });
+      console.log('[PLAYER] 🧹 Removido da lista principal de players');
+    } catch (error) {
+      console.warn('[PLAYER] ⚠️ Erro ao remover player da sessão:', error);
+    }
+
+    try {
+      await deleteDoc(doc(db, 'multiplayer_sessions', sessionId, 'players', userId));
+      console.log('[PLAYER] 🧹 Documento da subcoleção players removido');
+    } catch (error) {
+      console.warn('[PLAYER] ⚠️ Erro ao remover documento da subcoleção:', error);
+    }
+  }, [sessionId, userId]);
+
+  const handleClose = useCallback(() => {
+    void removePlayerFromSession().finally(() => {
+      onClose?.();
+    });
+  }, [onClose, removePlayerFromSession]);
+
+  useEffect(() => {
+    return () => {
+      void removePlayerFromSession();
+    };
+  }, [removePlayerFromSession]);
+
+  useEffect(() => {
+    if (!isConnected) {
+      return;
+    }
+
+    const touchPresence = async () => {
+      try {
+        await setDoc(
+          doc(db, 'multiplayer_sessions', sessionId, 'players', userId),
+          {
+            username: playerDisplayName,
+            lastActive: serverTimestamp()
+          },
+          { merge: true }
+        );
+      } catch (error) {
+        console.warn('[PLAYER] ⚠️ Erro ao atualizar lastActive:', error);
+      }
+    };
+
+    touchPresence();
+  }, [isConnected, playerDisplayName, sessionId, userId]);
 
   // 🎮 Capturar inputs do teclado
   useEffect(() => {
@@ -148,7 +238,7 @@ export const MultiplayerPlayer: React.FC<MultiplayerPlayerProps> = ({
         </div>
 
         <button
-          onClick={onClose}
+          onClick={handleClose}
           className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
           title="Fechar"
         >
@@ -170,7 +260,7 @@ export const MultiplayerPlayer: React.FC<MultiplayerPlayerProps> = ({
                 Verifique se o código da sessão está correto
               </p>
               <button
-                onClick={onClose}
+                onClick={handleClose}
                 className="px-6 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-white"
               >
                 Fechar
@@ -209,7 +299,7 @@ export const MultiplayerPlayer: React.FC<MultiplayerPlayerProps> = ({
               <h2 className="text-white text-lg mb-2">Erro de conexão</h2>
               <p className="text-gray-400 text-sm mb-4">{connectionError}</p>
               <button
-                onClick={onClose}
+                onClick={handleClose}
                 className="px-6 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
               >
                 Fechar

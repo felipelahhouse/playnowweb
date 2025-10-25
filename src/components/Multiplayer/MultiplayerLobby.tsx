@@ -3,7 +3,7 @@ import { X, Users, Play, Loader2, Plus, Search as SearchIcon, Gamepad2 } from 'l
 import { useAuth } from '../../contexts/AuthContext';
 import { useDebounce } from '../../hooks/useDebounce';
 import { db } from '../../lib/firebase';
-import { collection, query, where, getDocs, addDoc, serverTimestamp, doc, getDoc, updateDoc, deleteDoc } from 'firebase/firestore';
+import { collection, query, where, getDocs, addDoc, serverTimestamp, doc, getDoc, updateDoc, deleteDoc, setDoc } from 'firebase/firestore';
 
 interface GameSession {
   id: string;
@@ -432,6 +432,25 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
       const sessionId = newSessionDoc.id;
       console.log('✅ [MultiplayerLobby] Sessão criada:', sessionId);
 
+      try {
+        const now = serverTimestamp();
+        await setDoc(
+          doc(db, 'multiplayer_sessions', sessionId, 'players', user.id),
+          {
+            username: user.username,
+            playerNumber: 1,
+            isReady: true,
+            isHost: true,
+            joinedAt: now,
+            lastActive: now
+          },
+          { merge: true }
+        );
+        console.log('📝 [MultiplayerLobby] Host registrado na subcoleção players');
+      } catch (playerError) {
+        console.error('⚠️ [MultiplayerLobby] Falha ao registrar host na subcoleção:', playerError);
+      }
+
       // Callback - passa o romPath correto
       if (onCreateSession) {
         onCreateSession(
@@ -485,16 +504,42 @@ export const MultiplayerLobby: React.FC<MultiplayerLobbyProps> = ({
       
       if (sessionSnap.exists()) {
         const sessionData = sessionSnap.data();
-        const currentPlayers = sessionData.players || [];
-        
-        // Adicionar player se não estiver na lista
-        if (!currentPlayers.includes(user.id)) {
+        const currentPlayers: string[] = Array.isArray(sessionData.players) ? [...sessionData.players] : [];
+        const isAlreadyInRoom = currentPlayers.includes(user.id);
+        let updatedPlayers = currentPlayers;
+
+        if (!isAlreadyInRoom) {
+          updatedPlayers = [...currentPlayers, user.id];
           await updateDoc(sessionRef, {
-            players: [...currentPlayers, user.id],
+            players: updatedPlayers,
             status: 'playing' // Mudar status para "playing"
           });
           console.log('✅ [MultiplayerLobby] Player adicionado à sessão');
         }
+
+        const playerNumber = isAlreadyInRoom
+          ? currentPlayers.indexOf(user.id) + 1 || 1
+          : updatedPlayers.length;
+
+        const now = serverTimestamp();
+        const playerPayload: Record<string, unknown> = {
+          username: user.username,
+          playerNumber,
+          isReady: true,
+          isHost: user.id === sessionData.hostUserId,
+          lastActive: now
+        };
+
+        if (!isAlreadyInRoom) {
+          playerPayload.joinedAt = now;
+        }
+
+        await setDoc(
+          doc(db, 'multiplayer_sessions', sessionId, 'players', user.id),
+          playerPayload,
+          { merge: true }
+        );
+        console.log('📝 [MultiplayerLobby] Player registrado/atualizado na subcoleção');
       }
 
       // Callback - abre o MultiplayerPlayer

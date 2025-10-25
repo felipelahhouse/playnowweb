@@ -12,7 +12,7 @@ declare global {
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { X, Users, Copy, Check, Crown, Wifi, Loader2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { doc, onSnapshot, collection, query, where, deleteDoc, updateDoc, getDocs } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where, deleteDoc, updateDoc, getDocs, setDoc, serverTimestamp } from 'firebase/firestore';
 import { db, storage } from '../../lib/firebase';
 import { ref as storageRef, getDownloadURL } from 'firebase/storage';
 import { usePeerJSHost } from '../../hooks/usePeerJSHost';
@@ -200,7 +200,37 @@ const MultiplayerHostView: React.FC<MultiplayerHostViewProps> = ({
     processRomUrl();
   }, [romPath]);
 
-  // 👥 Escuta mudanças nos players + AUTO-CLEANUP quando sala vazia
+  // Registrar host na subcoleção de players para sincronizar com Auto-Cleanup
+  useEffect(() => {
+    if (!user?.id || !sessionId) {
+      return;
+    }
+
+    const registerHost = async () => {
+      try {
+        const now = serverTimestamp();
+        await setDoc(
+          doc(db, 'multiplayer_sessions', sessionId, 'players', user.id),
+          {
+            username: user.username || 'Host',
+            playerNumber: 1,
+            isReady: true,
+            isHost: true,
+            joinedAt: now,
+            lastActive: now
+          },
+          { merge: true }
+        );
+        console.log('[HOST VIEW] � Host sincronizado na subcoleção players');
+      } catch (hostSyncError) {
+        console.error('[HOST VIEW] ❌ Erro ao registrar host na subcoleção:', hostSyncError);
+      }
+    };
+
+    registerHost();
+  }, [sessionId, user?.id, user?.username]);
+
+  // �👥 Escuta mudanças nos players + AUTO-CLEANUP quando sala vazia
   useEffect(() => {
     const playersQuery = query(
       collection(db, 'multiplayer_sessions', sessionId, 'players')
@@ -242,6 +272,8 @@ const MultiplayerHostView: React.FC<MultiplayerHostViewProps> = ({
             console.log('[HOST VIEW] 🗑️ Sala continua vazia após 10s, FECHANDO AUTOMATICAMENTE...');
             try {
               const sessionRef = doc(db, 'multiplayer_sessions', sessionId);
+              const stalePlayers = await getDocs(collection(db, 'multiplayer_sessions', sessionId, 'players'));
+              await Promise.all(stalePlayers.docs.map((playerDoc) => deleteDoc(playerDoc.ref)));
               await deleteDoc(sessionRef);
               console.log('[HOST VIEW] ✅ Sessão vazia deletada automaticamente');
               alert('🚪 Sala fechada automaticamente (sem players por 10 segundos)');
@@ -271,8 +303,10 @@ const MultiplayerHostView: React.FC<MultiplayerHostViewProps> = ({
     const deleteSession = async () => {
       try {
         console.log('[HOST VIEW] 🗑️ HOST saindo - Deletando sessão:', sessionId);
-        
-        // Deletar da collection correta (multiplayer_sessions)
+
+        const playersSnapshot = await getDocs(collection(db, 'multiplayer_sessions', sessionId, 'players'));
+        await Promise.all(playersSnapshot.docs.map((playerDoc) => deleteDoc(playerDoc.ref)));
+
         const sessionRef = doc(db, 'multiplayer_sessions', sessionId);
         await deleteDoc(sessionRef);
         
@@ -440,16 +474,14 @@ const MultiplayerHostView: React.FC<MultiplayerHostViewProps> = ({
     if (!processedRomUrl || !user?.id || !user?.username) return null;
     const cacheBuster = Date.now();
 
-    // Get Socket.IO URL and base emulator HTML from environment
-    const socketUrl = import.meta.env.VITE_SOCKET_URL || '';
+    // Base emulator HTML para multiplayer PeerJS
     const emulatorBasePath = (import.meta.env.VITE_MULTIPLAYER_EMULATOR || '/universal-player.html').trim();
 
-    // Build URL with Socket.IO parameters for multiplayer + desabilitar controles mobile
+    // Build URL com parâmetros de PeerJS + desabilitar controles mobile
     const params = new URLSearchParams({
       rom: processedRomUrl,
       title: gameTitle,
       platform: platform,
-      socketUrl: socketUrl,
       sessionId: sessionId,
       userId: user.id,
       username: user.username || 'Host',
