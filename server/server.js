@@ -14,14 +14,20 @@ const corsOriginValidator = (origin, callback) => {
     'https://playnowemulator.com',
     'https://www.playnowemulator.com',
     'https://planowemulator.web.app',
-  'http://localhost:5173',
-  'http://localhost:5174',
+    'https://playnowweb.onrender.com', // ✅ Render.com
+    'http://localhost:5173',
+    'http://localhost:5174',
     'http://localhost:5000',
     'http://localhost:3000'
   ];
 
   // Aceitar qualquer replit.dev domain
   if (origin && origin.includes('.replit.dev')) {
+    return callback(null, true);
+  }
+
+  // Aceitar qualquer onrender.com domain
+  if (origin && origin.includes('.onrender.com')) {
     return callback(null, true);
   }
 
@@ -113,7 +119,11 @@ app.use('/roms', express.static('public/roms', {
 const peerServer = ExpressPeerServer(httpServer, {
   debug: process.env.NODE_ENV !== 'production',
   path: '/',
-  allow_discovery: true
+  allow_discovery: true,
+  proxied: true, // ✅ Importante para Render.com
+  alive_timeout: 60000,
+  key: 'peerjs',
+  concurrent_limit: 5000
 });
 
 app.use('/peerjs', peerServer);
@@ -124,6 +134,10 @@ peerServer.on('connection', (client) => {
 
 peerServer.on('disconnect', (client) => {
   console.log(`🔌 [PeerJS] Client disconnected: ${client.getId()}`);
+});
+
+peerServer.on('error', (error) => {
+  console.error('❌ [PeerJS] Server Error:', error);
 });
 
 console.log('🎮 [PeerJS] Server initialized on /peerjs');
@@ -147,14 +161,20 @@ console.log('🎮 [PeerJS] Server initialized on /peerjs');
 
 // Socket.IO com CORS
 const io = new Server(httpServer, {
+  path: '/socket.io',
   cors: {
-    origin: corsOriginValidator,
+    origin: '*',
     methods: ['GET', 'POST'],
-    credentials: true
+    credentials: true,
+    allowedHeaders: ['*']
   },
   pingTimeout: 60000,
   pingInterval: 25000,
-  transports: ['websocket', 'polling']
+  transports: ['polling', 'websocket'],
+  allowEIO3: true,
+  serveClient: true,
+  allowUpgrades: true,
+  cookie: false
 });
 
 // Estrutura para armazenar salas e jogadores

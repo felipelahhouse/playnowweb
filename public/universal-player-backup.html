@@ -678,13 +678,18 @@
         });
         
         window.addEventListener('error', function(event) {
-            // ✅ CRÍTICO: Ignorar TODOS os erros de setupKeys e controles
+            // ✅ CRÍTICO: Apenas LOGAR erros não-críticos, NÃO BLOQUEAR
             const nonCriticalErrors = ['setupKeys', 'ResizeObserver', 'Script error', 'controls', 'gamepad', 'createControlSettingMenu', 'bindListeners', 'reading \'0\''];
-            if (nonCriticalErrors.some(err => event.message && event.message.includes(err))) {
+            
+            const isNonCritical = nonCriticalErrors.some(err => event.message && event.message.includes(err));
+            
+            if (isNonCritical) {
+                console.warn('[NON-CRITICAL ERROR]', event.message);
                 event.preventDefault();
                 return;
             }
             
+            // Para outros erros, apenas loga mas não previne (deixa EmulatorJS tratar)
             console.error('[GLOBAL ERROR]', event.error || event.message);
         }, true);
         
@@ -877,6 +882,180 @@
             } catch (e) {
                 console.warn('[NOTIFY] Could not notify parent:', e);
             }
+        }
+        
+        // ========================================
+        // PeerJS Connection for WebRTC Multiplayer
+        // ========================================
+        let peer = null;
+        let connections = new Map(); // Map de conexões P2P ativas
+        
+        function initializePeerJS() {
+            const params = new URLSearchParams(window.location.search);
+            const peerId = params.get('peerId') || params.get('userId');
+            const sessionId = params.get('sessionId');
+            
+            if (!peerId || !sessionId) {
+                console.log('[PEERJS] ⚠️ PeerJS não será inicializado (parâmetros ausentes)');
+                console.log('[PEERJS] peerId:', peerId);
+                console.log('[PEERJS] sessionId:', sessionId);
+                return;
+            }
+            
+            // Carregar PeerJS library se não estiver disponível
+            if (typeof Peer === 'undefined') {
+                console.log('[PEERJS] 📥 Carregando PeerJS library...');
+                const script = document.createElement('script');
+                script.src = 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
+                script.crossOrigin = 'anonymous';
+                script.onload = () => {
+                    console.log('[PEERJS] ✅ PeerJS library carregada');
+                    setupPeerConnection(peerId, sessionId);
+                };
+                script.onerror = () => {
+                    console.error('[PEERJS] ❌ Falha ao carregar PeerJS library');
+                };
+                document.head.appendChild(script);
+            } else {
+                setupPeerConnection(peerId, sessionId);
+            }
+        }
+        
+        function setupPeerConnection(peerId, sessionId) {
+            try {
+                console.log('═══════════════════════════════════════════════════════');
+                console.log('[PEERJS] 🚀🚀🚀 INICIALIZANDO PEERJS 🚀🚀🚀');
+                console.log('[PEERJS] Peer ID:', peerId);
+                console.log('[PEERJS] Session:', sessionId);
+                console.log('═══════════════════════════════════════════════════════');
+                
+                // Configuração do servidor PeerJS
+                const peerConfig = {
+                    host: 'playnowweb.onrender.com',
+                    port: 443,
+                    path: '/peerjs',
+                    secure: true,
+                    debug: 2,
+                    config: {
+                        iceServers: [
+                            { urls: 'stun:stun.l.google.com:19302' },
+                            { urls: 'stun:global.stun.twilio.com:3478' }
+                        ]
+                    }
+                };
+                
+                peer = new Peer(peerId, peerConfig);
+                
+                peer.on('open', (id) => {
+                    console.log('╔════════════════════════════════════════════════════╗');
+                    console.log('║ [PEERJS] ✅ CONECTADO AO SERVIDOR PEERJS ✅        ║');
+                    console.log('║ Peer ID:', id);
+                    console.log('╚════════════════════════════════════════════════════╝');
+                    
+                    notifyParent({ 
+                        type: 'peer-connected',
+                        peerId: id,
+                        sessionId: sessionId
+                    });
+                });
+                
+                peer.on('connection', (conn) => {
+                    console.log('[PEERJS] 📞 Recebendo conexão de:', conn.peer);
+                    handlePeerConnection(conn);
+                });
+                
+                peer.on('error', (err) => {
+                    console.error('[PEERJS] ❌ Erro:', err.type, err.message);
+                    
+                    // Tentar reconectar após erro
+                    if (err.type === 'network' || err.type === 'server-error') {
+                        console.log('[PEERJS] 🔄 Tentando reconectar em 3s...');
+                        setTimeout(() => {
+                            if (!peer || peer.destroyed) {
+                                setupPeerConnection(peerId, sessionId);
+                            }
+                        }, 3000);
+                    }
+                });
+                
+                peer.on('disconnected', () => {
+                    console.log('[PEERJS] ⚠️ Desconectado do servidor');
+                    // Tentar reconectar
+                    if (!peer.destroyed) {
+                        peer.reconnect();
+                    }
+                });
+                
+                peer.on('close', () => {
+                    console.log('[PEERJS] 🔌 Conexão fechada');
+                });
+                
+            } catch (err) {
+                console.error('[PEERJS] ❌ Erro ao inicializar:', err);
+            }
+        }
+        
+        function handlePeerConnection(conn) {
+            connections.set(conn.peer, conn);
+            
+            conn.on('open', () => {
+                console.log('[PEERJS] ✅ Conexão P2P estabelecida com:', conn.peer);
+                
+                // Enviar mensagem de boas-vindas
+                conn.send({
+                    type: 'welcome',
+                    timestamp: Date.now(),
+                    message: 'Conectado com sucesso!'
+                });
+            });
+            
+            conn.on('data', (data) => {
+                console.log('[PEERJS] 📨 Dados recebidos de', conn.peer, ':', data);
+                
+                // Processar dados recebidos (game state, inputs, etc)
+                if (data.type === 'gamestate') {
+                    // Sincronizar estado do jogo
+                    console.log('[PEERJS] 🎮 Sincronizando game state...');
+                }
+            });
+            
+            conn.on('close', () => {
+                console.log('[PEERJS] 🔌 Conexão fechada com:', conn.peer);
+                connections.delete(conn.peer);
+            });
+            
+            conn.on('error', (err) => {
+                console.error('[PEERJS] ❌ Erro na conexão com', conn.peer, ':', err);
+            });
+        }
+        
+        function connectToPeer(targetPeerId) {
+            if (!peer) {
+                console.error('[PEERJS] ❌ Peer não inicializado');
+                return;
+            }
+            
+            console.log('[PEERJS] 📞 Conectando ao peer:', targetPeerId);
+            const conn = peer.connect(targetPeerId, {
+                reliable: true,
+                serialization: 'json'
+            });
+            
+            handlePeerConnection(conn);
+            return conn;
+        }
+        
+        function broadcastToAllPeers(data) {
+            if (connections.size === 0) {
+                return;
+            }
+            
+            console.log('[PEERJS] 📡 Broadcasting para', connections.size, 'peers');
+            connections.forEach((conn, peerId) => {
+                if (conn.open) {
+                    conn.send(data);
+                }
+            });
         }
         
         // ========================================
@@ -1140,23 +1319,17 @@
                 console.log('[PROTECTION] ✅ Controles e configurações do emulador habilitados');
 
                 // ========================================
-                // 🚨 CORREÇÃO CRÍTICA: Configuração LOCAL COMPLETA
+                // 🚨 CORREÇÃO CRÍTICA: FORÇAR USO DO CDN (cores locais não disponíveis)
                 // ========================================
-                // ✅ TODOS OS ARQUIVOS LOCAIS
-                window.EJS_pathtodata = '/emulatorjs/';
+                // ❌ TEMPORARIAMENTE DESABILITADO: Arquivos locais (cores faltando)
+                // ✅ USANDO CDN: Até baixar todos os cores
+                // window.EJS_pathtodata = '/emulatorjs/';
                 
-                // Mapeia os arquivos que o loader.js procura
-                window.EJS_paths = {
-                    'emulator.min.js': '/emulatorjs/emulator.min.js',
-                    'emulator.min.css': '/emulatorjs/emulator.min.css'
-                };
+                // 🌐 CDN: EmulatorJS buscará os cores do CDN
+                window.EJS_pathtodata = 'https://cdn.jsdelivr.net/npm/emulatorjs@latest/data/';
                 
-                // 🛡️ PROTEÇÃO: Mock de objetos que podem causar erro
-                window.EJS_ready = false;
-                window.EJS_DEBUG_XX = false;
-                
-                console.log('[LOCAL] ✅ EmulatorJS configurado para arquivos locais');
-                console.log('[LOCAL] Base path:', window.EJS_pathtodata);
+                console.log('[CDN] ⚠️ Usando CDN temporariamente (cores locais indisponíveis)');
+                console.log('[CDN] Path:', window.EJS_pathtodata);
 
                 // ========================================
                 // EmulatorJS Configuration
@@ -1470,8 +1643,9 @@
                 }
 
                 
-                // Language - usando 'pt' (Português)
-                window.EJS_language = 'pt';
+                // Language - EmulatorJS doesn't support 'pt', using 'en' (English) instead
+                // Available languages: en, de, es, fr, it, ja, ko, nl, ru, zh-CN
+                window.EJS_language = 'en';
                 
                 // ✅ PROTEÇÃO MOBILE: Previne erros de "controls undefined"
                 window.EJS_DEBUG_XX = false; // Desabilita debug que pode causar erros
@@ -1517,7 +1691,8 @@
                     
                     gameStarted = true; // ✅ Marca que o jogo iniciou
                     
-                    // 🚀 Initialize Socket.IO connection for multiplayer
+                    // 🚀 Initialize multiplayer connections
+                    initializePeerJS();
                     initializeSocketIO();
                     
                     // Executa callbacks específicos de plataforma
@@ -1949,11 +2124,13 @@
                     };
                 };
                 
-                // ✅ CARREGAMENTO SIMPLIFICADO - DIRETO DO LOCAL
-                console.log('[LOCAL] 🚀 Carregando EmulatorJS dos arquivos locais...');
-                updateStatus('Carregando emulador...', 'Arquivos locais', 30);
+                // ✅ CARREGAMENTO DO CDN - FORÇADO (arquivos locais incompletos)
+                console.log('[CDN] 🚀 Carregando EmulatorJS do CDN (arquivos locais indisponíveis)...');
+                updateStatus('Carregando emulador...', 'Carregando do CDN...', 30);
                 
-                // Cria e adiciona o script loader
+                // ❌ DESABILITADO: Carregamento local (arquivos minificados faltando)
+                // Quando os arquivos estiverem completos em /public/emulatorjs/, reative isso
+                /*
                 loaderScript = document.createElement('script');
                 loaderScript.src = '/emulatorjs/loader.js';
                 loaderScript.type = 'text/javascript';
@@ -1970,6 +2147,10 @@
                 };
                 
                 document.body.appendChild(loaderScript);
+                */
+                
+                // 🌐 USAR CDN
+                loadFromCdn(0);
                 
             } catch (err) {
                 showError(err.message || 'Erro ao inicializar emulador');
@@ -2097,6 +2278,53 @@
                 console.log(`[DIAGNOSTIC] window.EJS_gameUrl: ${window.EJS_gameUrl}`);
                 console.log(`[DIAGNOSTIC] window.EJS_core: ${window.EJS_core}`);
                 console.log(`[DIAGNOSTIC] EJS_onGameStart defined: ${typeof window.EJS_onGameStart === 'function'}`);
+                console.log(`[DIAGNOSTIC] EJS_startOnLoaded: ${window.EJS_startOnLoaded}`);
+                console.log(`[DIAGNOSTIC] DOM #game exists: ${!!document.getElementById('game')}`);
+                
+                // 🔍 DEBUG: Interceptar console.log do EmulatorJS
+                const originalLog = console.log;
+                const originalError = console.error;
+                const originalWarn = console.warn;
+                
+                console.log = function(...args) {
+                    const msg = args.join(' ');
+                    if (msg.includes('EJS') || msg.includes('emulator') || msg.includes('game') || msg.includes('rom')) {
+                        originalLog('[EJS-LOG]', ...args);
+                    } else {
+                        originalLog(...args);
+                    }
+                };
+                
+                console.error = function(...args) {
+                    const msg = args.join(' ');
+                    originalError('[EJS-ERROR]', ...args);
+                    
+                    // 🚨 CRÍTICO: Interceptar erro de runtime
+                    if (msg.includes('Error loading EmulatorJS runtime')) {
+                        originalError('[CRITICAL] EmulatorJS runtime error detected! Trying recovery...');
+                        
+                        // Tentar recarregar o EmulatorJS após 2 segundos
+                        setTimeout(() => {
+                            originalLog('[RECOVERY] Attempting to restart EmulatorJS...');
+                            // Força reload da página se necessário
+                            if (!gameStarted) {
+                                originalError('[RECOVERY] Game did not start, may need manual intervention');
+                                // Mostrar mensagem ao usuário
+                                updateStatus('⚠️ Erro no emulador', 'Tentando recuperar...', 60);
+                            }
+                        }, 2000);
+                    }
+                };
+                
+                console.warn = function(...args) {
+                    const msg = args.join(' ');
+                    if (msg.includes('Translation not found')) {
+                        // Silencia avisos de tradução
+                        return;
+                    }
+                    originalWarn(...args);
+                };
+                
                 console.log(`[DIAGNOSTIC] =========================================`);
                 updateStatus('Emulador carregado!', `✅ ${source.name}`, 50);
                 
@@ -2194,6 +2422,13 @@
             const errorStack = event.error?.stack || '';
             console.error('[WINDOW ERROR]', event.error, errorMsg);
             
+            // ❌ IGNORA "Script error" (erro genérico de CORS)
+            if (errorMsg === 'Script error.' || errorMsg === 'Script error') {
+                console.warn('[IGNORED ERROR] ⚠️ Script error (CORS-related, non-critical)');
+                event.preventDefault();
+                return; // Não mostra erro ao usuário
+            }
+            
             // ❌ IGNORA ERROS DE loadSettings E setVolume (não são críticos)
             if (errorMsg.includes('loadSettings') || 
                 errorMsg.includes('setVolume') || 
@@ -2214,6 +2449,7 @@
                 return;
             }
             
+            // Só mostra erro se loading ainda estiver visível (jogo não iniciou)
             if (!loading.classList.contains('hidden')) {
                 showError(errorMsg || 'Erro ao carregar o jogo');
             }

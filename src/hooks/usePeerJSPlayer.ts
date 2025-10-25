@@ -28,9 +28,6 @@ const PEER_SERVERS = [
   }
 ];
 
-// ⚠️ Flag para desabilitar PeerJS se falhar permanentemente
-let PEERJS_DISABLED = false;
-
 export const usePeerJSPlayer = ({
   sessionId,
   hostPeerId,
@@ -102,24 +99,13 @@ export const usePeerJSPlayer = ({
 
   // 🔄 Conectar ao servidor PeerJS
   const connectToPeerServer = useCallback((serverIndex: number = 0) => {
-    // ⚠️ Se PeerJS foi desabilitado, não tenta mais
-    if (PEERJS_DISABLED) {
-      console.warn('⚠️ [PLAYER] PeerJS desabilitado (servidor indisponível)');
-      setIsConnected(false);
-      return;
-    }
-
-    // ⚠️ Limita a apenas 2 tentativas totais (evita loop infinito)
     if (serverIndex >= PEER_SERVERS.length) {
-      if (connectionAttempts < 2) {
+      console.error('❌ [PLAYER] Todos os servidores falharam');
+      if (connectionAttempts < 3) {
         reconnectTimeoutRef.current = setTimeout(() => {
           setConnectionAttempts(prev => prev + 1);
           connectToPeerServer(0);
-        }, 8000); // 8 segundos entre tentativas
-      } else {
-        console.error('❌ [PLAYER] PeerJS indisponível após 2 tentativas. Desabilitado.');
-        PEERJS_DISABLED = true;
-        setIsConnected(false);
+        }, 5000);
       }
       return;
     }
@@ -127,13 +113,15 @@ export const usePeerJSPlayer = ({
     const server = PEER_SERVERS[serverIndex];
     const playerPeerId = `player-${sessionId}-${userId}-${Date.now()}`;
     
+    console.log(`🎮 [PLAYER] Conectando: ${server.name}`);
+    
     try {
       const peer = new Peer(playerPeerId, {
         host: server.host,
         port: server.port,
         path: server.path,
         secure: server.secure,
-        debug: 0, // ✅ Desabilita debug verbose
+        debug: 2,
         config: {
           iceServers: [
             { urls: 'stun:stun.l.google.com:19302' },
@@ -143,10 +131,10 @@ export const usePeerJSPlayer = ({
       });
 
       peer.on('open', (id) => {
-        console.log(`✅ [PLAYER] PeerJS conectado: ${id}`);
+        console.log(`🟢 [PLAYER] Conectado: ${server.name}`);
+        console.log(`✅ [PLAYER] PeerID: ${id}`);
         setPeerId(id);
         setConnectionAttempts(0);
-        PEERJS_DISABLED = false;
         
         // Conectar ao HOST
         if (hostPeerId) {
@@ -156,7 +144,7 @@ export const usePeerJSPlayer = ({
 
       // 📹 Receber stream do HOST
       peer.on('call', (call) => {
-        console.log('📞 [PLAYER] Recebendo stream...');
+        console.log('📞 [PLAYER] Recebendo chamada...');
         mediaConnectionRef.current = call;
         call.answer(); // Aceitar chamada
         
@@ -172,28 +160,25 @@ export const usePeerJSPlayer = ({
         });
 
         call.on('error', (error) => {
-          if (error.message && !error.message.includes('destroyed')) {
-            console.warn('⚠️ [PLAYER] Aviso stream:', error.message);
-          }
+          console.error('❌ [PLAYER] Erro stream:', error);
         });
       });
 
       peer.on('error', (error) => {
-        // ✅ Apenas loga erros de rede/servidor
+        console.error(`❌ [PLAYER] Erro: ${server.name}`, error);
+        
         if (error.type === 'network' || error.type === 'server-error') {
-          console.warn(`⚠️ [PLAYER] Erro de conexão: ${server.name}`);
           peer.destroy();
           setTimeout(() => {
             connectToPeerServer(serverIndex + 1);
-          }, 1500);
+          }, 1000);
         }
       });
 
       peer.on('disconnected', () => {
-        // ✅ Silencia logs de desconexão se estiver destruído
+        console.warn('⚠️ [PLAYER] Desconectado! Reconectando...');
+        setIsConnected(false);
         if (!peer.destroyed) {
-          console.log('🔄 [PLAYER] Reconectando...');
-          setIsConnected(false);
           peer.reconnect();
         }
       });

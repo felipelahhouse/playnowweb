@@ -880,6 +880,180 @@
         }
         
         // ========================================
+        // PeerJS Connection for WebRTC Multiplayer
+        // ========================================
+        let peer = null;
+        let connections = new Map(); // Map de conexões P2P ativas
+        
+        function initializePeerJS() {
+            const params = new URLSearchParams(window.location.search);
+            const peerId = params.get('peerId') || params.get('userId');
+            const sessionId = params.get('sessionId');
+            
+            if (!peerId || !sessionId) {
+                console.log('[PEERJS] ⚠️ PeerJS não será inicializado (parâmetros ausentes)');
+                console.log('[PEERJS] peerId:', peerId);
+                console.log('[PEERJS] sessionId:', sessionId);
+                return;
+            }
+            
+            // Carregar PeerJS library se não estiver disponível
+            if (typeof Peer === 'undefined') {
+                console.log('[PEERJS] 📥 Carregando PeerJS library...');
+                const script = document.createElement('script');
+                script.src = 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
+                script.crossOrigin = 'anonymous';
+                script.onload = () => {
+                    console.log('[PEERJS] ✅ PeerJS library carregada');
+                    setupPeerConnection(peerId, sessionId);
+                };
+                script.onerror = () => {
+                    console.error('[PEERJS] ❌ Falha ao carregar PeerJS library');
+                };
+                document.head.appendChild(script);
+            } else {
+                setupPeerConnection(peerId, sessionId);
+            }
+        }
+        
+        function setupPeerConnection(peerId, sessionId) {
+            try {
+                console.log('═══════════════════════════════════════════════════════');
+                console.log('[PEERJS] 🚀🚀🚀 INICIALIZANDO PEERJS 🚀🚀🚀');
+                console.log('[PEERJS] Peer ID:', peerId);
+                console.log('[PEERJS] Session:', sessionId);
+                console.log('═══════════════════════════════════════════════════════');
+                
+                // Configuração do servidor PeerJS
+                const peerConfig = {
+                    host: 'playnowweb.onrender.com',
+                    port: 443,
+                    path: '/peerjs',
+                    secure: true,
+                    debug: 2,
+                    config: {
+                        iceServers: [
+                            { urls: 'stun:stun.l.google.com:19302' },
+                            { urls: 'stun:global.stun.twilio.com:3478' }
+                        ]
+                    }
+                };
+                
+                peer = new Peer(peerId, peerConfig);
+                
+                peer.on('open', (id) => {
+                    console.log('╔════════════════════════════════════════════════════╗');
+                    console.log('║ [PEERJS] ✅ CONECTADO AO SERVIDOR PEERJS ✅        ║');
+                    console.log('║ Peer ID:', id);
+                    console.log('╚════════════════════════════════════════════════════╝');
+                    
+                    notifyParent({ 
+                        type: 'peer-connected',
+                        peerId: id,
+                        sessionId: sessionId
+                    });
+                });
+                
+                peer.on('connection', (conn) => {
+                    console.log('[PEERJS] 📞 Recebendo conexão de:', conn.peer);
+                    handlePeerConnection(conn);
+                });
+                
+                peer.on('error', (err) => {
+                    console.error('[PEERJS] ❌ Erro:', err.type, err.message);
+                    
+                    // Tentar reconectar após erro
+                    if (err.type === 'network' || err.type === 'server-error') {
+                        console.log('[PEERJS] 🔄 Tentando reconectar em 3s...');
+                        setTimeout(() => {
+                            if (!peer || peer.destroyed) {
+                                setupPeerConnection(peerId, sessionId);
+                            }
+                        }, 3000);
+                    }
+                });
+                
+                peer.on('disconnected', () => {
+                    console.log('[PEERJS] ⚠️ Desconectado do servidor');
+                    // Tentar reconectar
+                    if (!peer.destroyed) {
+                        peer.reconnect();
+                    }
+                });
+                
+                peer.on('close', () => {
+                    console.log('[PEERJS] 🔌 Conexão fechada');
+                });
+                
+            } catch (err) {
+                console.error('[PEERJS] ❌ Erro ao inicializar:', err);
+            }
+        }
+        
+        function handlePeerConnection(conn) {
+            connections.set(conn.peer, conn);
+            
+            conn.on('open', () => {
+                console.log('[PEERJS] ✅ Conexão P2P estabelecida com:', conn.peer);
+                
+                // Enviar mensagem de boas-vindas
+                conn.send({
+                    type: 'welcome',
+                    timestamp: Date.now(),
+                    message: 'Conectado com sucesso!'
+                });
+            });
+            
+            conn.on('data', (data) => {
+                console.log('[PEERJS] 📨 Dados recebidos de', conn.peer, ':', data);
+                
+                // Processar dados recebidos (game state, inputs, etc)
+                if (data.type === 'gamestate') {
+                    // Sincronizar estado do jogo
+                    console.log('[PEERJS] 🎮 Sincronizando game state...');
+                }
+            });
+            
+            conn.on('close', () => {
+                console.log('[PEERJS] 🔌 Conexão fechada com:', conn.peer);
+                connections.delete(conn.peer);
+            });
+            
+            conn.on('error', (err) => {
+                console.error('[PEERJS] ❌ Erro na conexão com', conn.peer, ':', err);
+            });
+        }
+        
+        function connectToPeer(targetPeerId) {
+            if (!peer) {
+                console.error('[PEERJS] ❌ Peer não inicializado');
+                return;
+            }
+            
+            console.log('[PEERJS] 📞 Conectando ao peer:', targetPeerId);
+            const conn = peer.connect(targetPeerId, {
+                reliable: true,
+                serialization: 'json'
+            });
+            
+            handlePeerConnection(conn);
+            return conn;
+        }
+        
+        function broadcastToAllPeers(data) {
+            if (connections.size === 0) {
+                return;
+            }
+            
+            console.log('[PEERJS] 📡 Broadcasting para', connections.size, 'peers');
+            connections.forEach((conn, peerId) => {
+                if (conn.open) {
+                    conn.send(data);
+                }
+            });
+        }
+        
+        // ========================================
         // Socket.IO Connection for Multiplayer
         // ========================================
         let socket = null;
@@ -1523,8 +1697,9 @@
                 }
 
                 
-                // Language - usando 'pt' (Português)
-                window.EJS_language = 'pt';
+                // Language - EmulatorJS doesn't support 'pt', using 'en' (English) instead
+                // Available languages: en, de, es, fr, it, ja, ko, nl, ru, zh-CN
+                window.EJS_language = 'en';
                 
                 // ✅ PROTEÇÃO MOBILE: Previne erros de "controls undefined"
                 window.EJS_DEBUG_XX = false; // Desabilita debug que pode causar erros
@@ -1585,7 +1760,8 @@
                                     console.log('[FALLBACK] ✅ Loading screen ocultado');
                                 }, 500);
                                 
-                                // Inicializa Socket.IO
+                                // Inicializa multiplayer
+                                initializePeerJS();
                                 initializeSocketIO();
                             }
                         }
@@ -1619,7 +1795,8 @@
                     
                     gameStarted = true; // ✅ Marca que o jogo iniciou
                     
-                    // 🚀 Initialize Socket.IO connection for multiplayer
+                    // 🚀 Initialize multiplayer connections
+                    initializePeerJS();
                     initializeSocketIO();
                     
                     // Executa callbacks específicos de plataforma
