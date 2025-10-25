@@ -2,6 +2,7 @@ import express from 'express';
 import { createServer } from 'http';
 import { Server } from 'socket.io';
 import cors from 'cors';
+import { ExpressPeerServer } from 'peer';
 
 const app = express();
 const httpServer = createServer(app);
@@ -105,6 +106,27 @@ app.use('/roms', express.static('public/roms', {
     res.setHeader('Cache-Control', 'public, max-age=31536000, immutable');
   }
 }));
+
+// ============================================================
+// 🎮 PEERJS SERVER INTEGRATION
+// ============================================================
+const peerServer = ExpressPeerServer(httpServer, {
+  debug: process.env.NODE_ENV !== 'production',
+  path: '/',
+  allow_discovery: true
+});
+
+app.use('/peerjs', peerServer);
+
+peerServer.on('connection', (client) => {
+  console.log(`🔌 [PeerJS] Client connected: ${client.getId()}`);
+});
+
+peerServer.on('disconnect', (client) => {
+  console.log(`🔌 [PeerJS] Client disconnected: ${client.getId()}`);
+});
+
+console.log('🎮 [PeerJS] Server initialized on /peerjs');
 
 // ============================================================
 // 📦 BACKUP - CONFIGURAÇÃO ANTERIOR (COMENTADA)

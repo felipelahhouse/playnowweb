@@ -644,6 +644,14 @@
         console.log('[DEVICE INFO] ==========================================');
         
         // ========================================
+        // 🛡️ PRE-LOAD EMULATORJS ERROR PROTECTION
+        // ========================================
+        // ✅ REMOVIDO: Override de window.Error que causava problemas
+        // ✅ ESTRATÉGIA: Usar apenas event listeners para capturar erros específicos
+        
+        console.log('[PROTECTION] ✅ Error protection initialized (event listeners only)');
+
+        // ========================================
         // 🛡️ Global Error Handlers - PREVINE CRASH DO EMULATORJS
         // ========================================
         window.addEventListener('unhandledrejection', function(event) {
@@ -657,6 +665,7 @@
                 msg.includes('controls') ||
                 msg.includes('gamepad') ||
                 msg.includes('Cannot read properties') ||
+                msg.includes('reading \'0\'') ||
                 stack.includes('setupKeys') ||
                 stack.includes('createControlSettingMenu') ||
                 stack.includes('bindListeners')) {
@@ -670,14 +679,14 @@
         
         window.addEventListener('error', function(event) {
             // ✅ CRÍTICO: Ignorar TODOS os erros de setupKeys e controles
-            const nonCriticalErrors = ['setupKeys', 'ResizeObserver', 'Script error', 'controls', 'gamepad', 'createControlSettingMenu', 'bindListeners'];
+            const nonCriticalErrors = ['setupKeys', 'ResizeObserver', 'Script error', 'controls', 'gamepad', 'createControlSettingMenu', 'bindListeners', 'reading \'0\''];
             if (nonCriticalErrors.some(err => event.message && event.message.includes(err))) {
                 event.preventDefault();
                 return;
             }
             
             console.error('[GLOBAL ERROR]', event.error || event.message);
-        });
+        }, true);
         
         // ========================================
         // Core Configuration per Platform
