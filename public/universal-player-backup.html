@@ -1059,121 +1059,10 @@
         }
         
         // ========================================
-        // Socket.IO Connection for Multiplayer
+        // ❌ REMOVIDO: Socket.IO - Sistema usa apenas PeerJS/WebRTC
         // ========================================
-        let socket = null;
-        
-        function initializeSocketIO() {
-            // Obter URL do servidor a partir de query params
-            const params = new URLSearchParams(window.location.search);
-            const socketUrl = params.get('socketUrl') || window.__SOCKET_URL__;
-            const sessionId = params.get('sessionId');
-            const userId = params.get('userId');
-            const username = params.get('username');
-            
-            if (!socketUrl || !sessionId || !userId) {
-                console.log('[SOCKET] ⚠️ Socket.IO não será inicializado (parâmetros ausentes)');
-                console.log('[SOCKET] socketUrl:', socketUrl);
-                console.log('[SOCKET] sessionId:', sessionId);
-                console.log('[SOCKET] userId:', userId);
-                return;
-            }
-            
-            console.log('═══════════════════════════════════════════════════════');
-            console.log('[SOCKET] 🚀🚀🚀 INICIALIZANDO SOCKET.IO 🚀🚀🚀');
-            console.log('[SOCKET] Servidor:', socketUrl);
-            console.log('[SOCKET] Session:', sessionId);
-            console.log('[SOCKET] User:', userId);
-            console.log('═══════════════════════════════════════════════════════');
-            
-            // Carregar Socket.IO library se não estiver disponível
-            if (typeof io === 'undefined') {
-                console.log('[SOCKET] 📥 Carregando Socket.IO library...');
-                const script = document.createElement('script');
-                script.src = 'https://cdn.socket.io/4.5.4/socket.io.min.js';
-                script.crossOrigin = 'anonymous';
-                script.onload = () => {
-                    console.log('[SOCKET] ✅ Socket.IO library carregada');
-                    connectToServer(socketUrl, sessionId, userId, username);
-                };
-                script.onerror = () => {
-                    console.error('[SOCKET] ❌ Falha ao carregar Socket.IO library');
-                };
-                document.head.appendChild(script);
-            } else {
-                connectToServer(socketUrl, sessionId, userId, username);
-            }
-        }
-        
-        function connectToServer(socketUrl, sessionId, userId, username) {
-            try {
-                console.log('[SOCKET] 🔗 Conectando ao servidor Socket.IO...');
-                
-                socket = io(socketUrl, {
-                    reconnection: true,
-                    reconnectionDelay: 1000,
-                    reconnectionDelayMax: 5000,
-                    reconnectionAttempts: 5,
-                    transports: ['websocket', 'polling']
-                });
-                
-                socket.on('connect', () => {
-                    console.log('╔════════════════════════════════════════════════════╗');
-                    console.log('║ [SOCKET] ✅ CONECTADO AO SERVIDOR SOCKET.IO ✅      ║');
-                    console.log('║ Socket ID:', socket.id);
-                    console.log('╚════════════════════════════════════════════════════╝');
-                    
-                    // Notificar servidor que player entrou
-                    socket.emit('player-join', {
-                        sessionId: sessionId,
-                        userId: userId,
-                        username: username || 'Jogador',
-                        timestamp: new Date().toISOString()
-                    });
-                    
-                    notifyParent({ 
-                        type: 'socket-connected',
-                        socketId: socket.id,
-                        sessionId: sessionId
-                    });
-                });
-                
-                socket.on('disconnect', (reason) => {
-                    console.log('╔════════════════════════════════════════════════════╗');
-                    console.log('║ [SOCKET] ❌ DESCONECTADO DO SERVIDOR SOCKET.IO ❌   ║');
-                    console.log('║ Motivo:', reason);
-                    console.log('╚════════════════════════════════════════════════════╝');
-                    
-                    notifyParent({ 
-                        type: 'socket-disconnected',
-                        reason: reason
-                    });
-                });
-                
-                socket.on('host-left', (data) => {
-                    console.warn('[SOCKET] ⚠️ HOST DEIXOU A SALA!', data);
-                    notifyParent({ 
-                        type: 'host-left',
-                        reason: data.reason
-                    });
-                });
-                
-                socket.on('player-joined', (data) => {
-                    console.log('[SOCKET] 👥 Novo jogador entrou:', data);
-                });
-                
-                socket.on('player-left', (data) => {
-                    console.log('[SOCKET] 👤 Jogador saiu:', data);
-                });
-                
-                socket.on('error', (error) => {
-                    console.error('[SOCKET] ❌ Erro Socket.IO:', error);
-                });
-                
-            } catch (err) {
-                console.error('[SOCKET] ❌ Erro ao conectar Socket.IO:', err);
-            }
-        }
+        // O multiplayer funciona 100% peer-to-peer via WebRTC
+        // Não precisamos de Socket.IO para sincronização
         
         function getPerformanceSettings(perfLevel) {
             const settings = {
@@ -1691,9 +1580,9 @@
                     
                     gameStarted = true; // ✅ Marca que o jogo iniciou
                     
-                    // 🚀 Initialize multiplayer connections
+                    // 🚀 Initialize multiplayer connections (apenas PeerJS/WebRTC)
                     initializePeerJS();
-                    initializeSocketIO();
+                    // ❌ REMOVIDO: initializeSocketIO() - não mais necessário
                     
                     // Executa callbacks específicos de plataforma
                     originalCallbacks.forEach(cb => {

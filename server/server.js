@@ -1,6 +1,7 @@
 import express from 'express';
 import { createServer } from 'http';
-import { Server } from 'socket.io';
+// ❌ REMOVIDO: Socket.IO não é necessário - usamos apenas PeerJS/WebRTC
+// import { Server } from 'socket.io';
 import cors from 'cors';
 import { ExpressPeerServer } from 'peer';
 
@@ -114,16 +115,23 @@ app.use('/roms', express.static('public/roms', {
 }));
 
 // ============================================================
-// 🎮 PEERJS SERVER INTEGRATION
+// 🎮 PEERJS SERVER INTEGRATION - OTIMIZADO PARA RENDER.COM
 // ============================================================
 const peerServer = ExpressPeerServer(httpServer, {
   debug: process.env.NODE_ENV !== 'production',
   path: '/',
   allow_discovery: true,
-  proxied: true, // ✅ Importante para Render.com
+  proxied: true, // ✅ Importante para Render.com (reverse proxy)
   alive_timeout: 60000,
   key: 'peerjs',
-  concurrent_limit: 5000
+  concurrent_limit: 5000,
+  // ✅ NOVO: Configurações adicionais
+  port: parseInt(process.env.PORT) || 10000,
+  ssl: {}, // ✅ Render.com gerencia SSL
+  corsOptions: {
+    origin: '*',
+    credentials: true
+  }
 });
 
 app.use('/peerjs', peerServer);
@@ -159,360 +167,38 @@ console.log('🎮 [PeerJS] Server initialized on /peerjs');
 */
 // ============================================================
 
-// Socket.IO com CORS
-const io = new Server(httpServer, {
-  path: '/socket.io',
-  cors: {
-    origin: '*',
-    methods: ['GET', 'POST'],
-    credentials: true,
-    allowedHeaders: ['*']
-  },
-  pingTimeout: 60000,
-  pingInterval: 25000,
-  transports: ['polling', 'websocket'],
-  allowEIO3: true,
-  serveClient: true,
-  allowUpgrades: true,
-  cookie: false
-});
-
-// Estrutura para armazenar salas e jogadores
-const rooms = new Map();
-const players = new Map();
+// ❌ REMOVIDO: Socket.IO - Sistema usa apenas PeerJS/WebRTC
+// Todo o código de multiplayer é feito via WebRTC peer-to-peer
+// Não precisamos de Socket.IO para sincronização
 
 // Health check endpoint
 app.get('/', (req, res) => {
   res.json({
     status: 'online',
-    service: 'PlayNowEmulator Socket.IO Server',
-    version: '1.0.0',
-    rooms: rooms.size,
-    players: players.size,
+    service: 'PlayNowEmulator PeerJS Server',
+    version: '2.0.0',
+    protocol: 'WebRTC',
+    peerjs: {
+      path: '/peerjs',
+      debug: process.env.NODE_ENV !== 'production'
+    },
     timestamp: new Date().toISOString()
   });
 });
 
-app.get('/stats', (req, res) => {
-  const roomStats = Array.from(rooms.entries()).map(([roomId, room]) => ({
-    roomId,
-    players: room.players.length,
-    host: room.host,
-    gameCore: room.gameCore,
-    gameRom: room.gameRom
-  }));
+// ❌ REMOVIDO: Todo código Socket.IO - Sistema usa apenas PeerJS/WebRTC
+// O multiplayer funciona completamente peer-to-peer via WebRTC
+// Não há necessidade de servidor centralizado para sincronização
 
-  res.json({
-    totalRooms: rooms.size,
-    totalPlayers: players.size,
-    rooms: roomStats
-  });
-});
-
-io.on('connection', (socket) => {
-  console.log(`✅ Player connected: ${socket.id}`);
-  console.log(`   Hora: ${new Date().toLocaleTimeString()}`);
-  console.log(`   Total conectados: ${io.engine.clientsCount}`);
-  
-  // 🔥 NOVO: Player join notification
-  socket.on('player-join', (data) => {
-    const { sessionId, userId, username } = data;
-    console.log(`👤 [PLAYER JOIN] ${username} (${userId}) joining session ${sessionId}`);
-    
-    // Notificar host que novo player entrou
-    io.to(sessionId).emit('player-joined-notification', {
-      userId: userId,
-      username: username,
-      sessionId: sessionId,
-      timestamp: new Date().toISOString()
-    });
-  });
-  
-  // 🔥 FIX: Criar sala
-  socket.on('create-room', (data) => {
-    const { game, username } = data;
-    const roomCode = Math.random().toString(36).substring(2, 8).toUpperCase();
-    
-    console.log(`👑 Creating room: ${roomCode} by ${socket.id}`);
-    
-    const room = {
-      id: roomCode,
-      host: socket.id,
-      players: [],
-      game: game,
-      createdAt: Date.now()
-    };
-    
-    rooms.set(roomCode, room);
-    socket.join(roomCode);
-    
-    const player = {
-      id: socket.id,
-      sessionId: roomCode,
-      isHost: true,
-      name: username || 'Host',
-      joinedAt: Date.now()
-    };
-    
-    room.players.push(player);
-    players.set(socket.id, player);
-    
-    socket.emit('room-created', {
-      room_code: roomCode,
-      role: 'host',
-      game: game
-    });
-    
-    console.log(`✅ Room ${roomCode} created`);
-  });
-  
-  // 🔥 FIX: Entrar em sala existente
-  socket.on('join-room', (data) => {
-    const { roomCode, username } = data;
-    
-    console.log(`🎮 Player ${socket.id} joining room: ${roomCode}`);
-    
-    const room = rooms.get(roomCode);
-    
-    if (!room) {
-      socket.emit('error', { message: 'Sala não encontrada' });
-      return;
-    }
-    
-    socket.join(roomCode);
-    
-    const player = {
-      id: socket.id,
-      sessionId: roomCode,
-      isHost: false,
-      name: username || `Player ${room.players.length + 1}`,
-      joinedAt: Date.now()
-    };
-    
-    room.players.push(player);
-    players.set(socket.id, player);
-    
-    socket.emit('room-joined', {
-      room_code: roomCode,
-      role: 'spectator',
-      game: room.game
-    });
-    
-    // Notificar outros jogadores
-    socket.to(roomCode).emit('player-joined', {
-      username: player.name,
-      totalPlayers: room.players.length
-    });
-    
-    console.log(`✅ Player joined room ${roomCode}`);
-  });
-  
-  // 🔥 FIX: Join or create session (compatibilidade)
-  socket.on('join-or-create-session', (data) => {
-    const { sessionId, game, username } = data;
-    
-    console.log(`🎮 Player ${socket.id} join-or-create: ${sessionId}`);
-    
-    // Adicionar socket à sala
-    socket.join(sessionId);
-    
-    // Verificar se a sala já existe
-    let room = rooms.get(sessionId);
-    let isHost = false;
-    
-    if (!room) {
-      // Primeira pessoa = HOST
-      isHost = true;
-      room = {
-        id: sessionId,
-        host: socket.id,
-        players: [],
-        game: game,
-        createdAt: Date.now()
-      };
-      rooms.set(sessionId, room);
-      console.log(`👑 Room created by HOST: ${socket.id}`);
-    }
-    
-    // Adicionar jogador à sala
-    const player = {
-      id: socket.id,
-      sessionId: sessionId,
-      isHost: isHost,
-      name: username || `Player ${room.players.length + 1}`,
-      joinedAt: Date.now()
-    };
-    
-    room.players.push(player);
-    players.set(socket.id, player);
-    
-    // Confirmar conexão para o jogador
-    socket.emit('joined-room', {
-      success: true,
-      isHost: isHost,
-      playerId: socket.id,
-      sessionId: sessionId,
-      players: room.players.length
-    });
-    
-    // Notificar todos na sala sobre novo jogador
-    io.to(sessionId).emit('player-joined', {
-      player: player,
-      totalPlayers: room.players.length,
-      players: room.players
-    });
-    
-    console.log(`📊 Room ${sessionId}: ${room.players.length} players`);
-  });
-  
-  // Receber input do jogador e broadcast para outros
-  socket.on('input', (data) => {
-    const player = players.get(socket.id);
-    if (!player) return;
-    
-    const { key, type, timestamp } = data;
-    
-    // Broadcast para todos na sala EXCETO o sender
-    socket.to(player.sessionId).emit('player-input', {
-      playerId: socket.id,
-      playerName: player.name,
-      key: key,
-      type: type,
-      timestamp: timestamp || Date.now()
-    });
-  });
-  
-  // 🔥 FIX: Sincronizar frames do jogo (60 FPS)
-  socket.on('sync-state', (data) => {
-    const player = players.get(socket.id);
-    if (!player || !player.isHost) return; // Apenas HOST pode enviar frames
-    
-    const { frame, state, timestamp } = data;
-    
-    // 🚀 OTIMIZAÇÃO: Broadcast frames para todos os guests
-    socket.to(player.sessionId).emit('state-update', {
-      frame: frame,
-      state: state,
-      timestamp: timestamp || Date.now()
-    });
-  });
-  
-  // 🎥 🔥 NOVO: Receber frames do HOST via stream-frame (MultiplayerHostView)
-  socket.on('stream-frame', (data) => {
-    const player = players.get(socket.id);
-    if (!player || !player.isHost) {
-      console.warn(`[STREAM-FRAME] ❌ Player ${socket.id} not a host, ignoring frame`);
-      return; // Apenas HOST pode enviar frames
-    }
-    
-    const { frame, timestamp, frameNumber, sizeKB } = data;
-    
-    // Log a cada 30 frames
-    if (frameNumber % 30 === 0) {
-      console.log(`[STREAM-FRAME] 📤 HOST ${socket.id} enviando frame #${frameNumber} (${sizeKB}KB) para sala ${player.sessionId}`);
-    }
-    
-    // 🚀 CRÍTICO: Broadcast frames para TODOS OS PLAYERS na sala (exceto o host)
-    socket.to(player.sessionId).emit('game-frame', {
-      frame: frame,
-      timestamp: timestamp || Date.now(),
-      frameNumber: frameNumber,
-      sizeKB: sizeKB
-    });
-  });
-  
-  // Mensagens de chat (opcional)
-  socket.on('chat-message', (data) => {
-    const player = players.get(socket.id);
-    if (!player) return;
-    
-    const { message } = data;
-    
-    io.to(player.sessionId).emit('chat-message', {
-      playerId: socket.id,
-      playerName: player.name,
-      message: message,
-      timestamp: Date.now()
-    });
-  });
-  
-  // Desconexão
-  socket.on('disconnect', () => {
-    console.log(`❌ Player disconnected: ${socket.id}`);
-    
-    const player = players.get(socket.id);
-    if (!player) return;
-    
-    const room = rooms.get(player.sessionId);
-    if (!room) return;
-    
-    // Remover jogador da sala
-    room.players = room.players.filter(p => p.id !== socket.id);
-    players.delete(socket.id);
-    
-    // Notificar outros jogadores
-    io.to(player.sessionId).emit('player-left', {
-      playerId: socket.id,
-      playerName: player.name,
-      totalPlayers: room.players.length,
-      players: room.players
-    });
-    
-    // Se era o host, promover novo host
-    if (player.isHost && room.players.length > 0) {
-      const newHost = room.players[0];
-      newHost.isHost = true;
-      room.host = newHost.id;
-      
-      io.to(newHost.id).emit('promoted-to-host', {
-        message: 'Você agora é o HOST!',
-        players: room.players
-      });
-      
-      io.to(player.sessionId).emit('new-host', {
-        hostId: newHost.id,
-        hostName: newHost.name
-      });
-      
-      console.log(`👑 New host promoted: ${newHost.id}`);
-    }
-    
-    // Se sala ficou vazia, deletar
-    if (room.players.length === 0) {
-      rooms.delete(player.sessionId);
-      console.log(`🗑️ Room deleted: ${player.sessionId}`);
-    }
-    
-    console.log(`📊 Room ${player.sessionId}: ${room.players.length} players remaining`);
-  });
-  
-  // Heartbeat para manter conexão ativa
-  socket.on('heartbeat', () => {
-    socket.emit('heartbeat-ack', { timestamp: Date.now() });
-  });
-});
-
-// Limpeza de salas inativas (após 1 hora)
-setInterval(() => {
-  const now = Date.now();
-  const oneHour = 60 * 60 * 1000;
-  
-  rooms.forEach((room, roomId) => {
-    if (now - room.createdAt > oneHour && room.players.length === 0) {
-      rooms.delete(roomId);
-      console.log(`🧹 Cleaned inactive room: ${roomId}`);
-    }
-  });
-}, 5 * 60 * 1000); // Verifica a cada 5 minutos
-
-const PORT = process.env.PORT || 3000;
+const PORT = process.env.PORT || 10000;
 
 httpServer.listen(PORT, () => {
   console.log(`
 ╔═══════════════════════════════════════════════════╗
-║  🎮 PlayNowEmulator Socket.IO Server              ║
+║  🎮 PlayNowEmulator PeerJS Server                 ║
 ║  ✅ Server running on port ${PORT}                 ║
-║  🌐 Ready to accept connections                   ║
+║  🌐 WebRTC signaling ready                        ║
+║  📡 Path: /peerjs                                 ║
 ╚═══════════════════════════════════════════════════╝
   `);
 });
