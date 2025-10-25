@@ -839,6 +839,32 @@
         
         let currentCdnIndex = 0;
         let loaderScript = null;
+        let emulatorStartedGlobally = false;
+        let cdnBootGuardTimeout = null;
+
+        function clearCdnBootGuard(reason = '') {
+            if (cdnBootGuardTimeout) {
+                console.log(`[CDN] ⏹️ Watchdog cancelado${reason ? ` (${reason})` : ''}`);
+                clearTimeout(cdnBootGuardTimeout);
+                cdnBootGuardTimeout = null;
+            }
+        }
+
+        function markEmulatorStarted(reason = '') {
+            if (!emulatorStartedGlobally) {
+                console.log(`[CDN] ✅ Game start confirmado${reason ? ` (${reason})` : ''}`);
+            }
+            emulatorStartedGlobally = true;
+            window.__EJS_gameStarted = true;
+            clearCdnBootGuard('game started');
+        }
+
+        function resetEmulatorGlobalState() {
+            emulatorStartedGlobally = false;
+            window.__EJS_gameStarted = false;
+            window.__EJS_lastLoaderSource = null;
+            clearCdnBootGuard('reset');
+        }
         
         // ========================================
         // Helper Functions
@@ -862,6 +888,10 @@
         }
         
         function showError(message) {
+            if (window.__EJS_gameStarted) {
+                console.warn('[ERROR] Ignorado após início do jogo:', message);
+                return;
+            }
             loading.classList.add('hidden');
             error.classList.add('show');
             errorText.textContent = message;
@@ -1150,6 +1180,8 @@
                 console.log('[EMULATOR] ROM URL:', romUrl ? romUrl.substring(0, 100) + '...' : 'NOT SET');
                 console.log('[EMULATOR] Config:', config);
                 console.log('='.repeat(60));
+
+                resetEmulatorGlobalState();
                 
                 // 🔍 DETECTA BLOQUEADORES ANTES DE CARREGAR (DESABILITADO - MUITO RUÍDO NO CONSOLE)
                 // const blockerWarnings = await detectAdBlockers();
@@ -1580,6 +1612,7 @@
                     }
                     
                     gameStarted = true; // ✅ Marca que o jogo iniciou
+                    markEmulatorStarted('EJS_onGameStart');
                     
                     // 🚀 Initialize multiplayer connections (apenas PeerJS/WebRTC)
                     initializePeerJS();
@@ -2076,7 +2109,18 @@
         }
 
         async function loadFromCdn(index) {
+            if (window.__EJS_gameStarted) {
+                console.log('[CDN] Jogo já iniciado; ignorando tentativa de CDN.');
+                return;
+            }
+
+            clearCdnBootGuard('new attempt');
+
             if (index >= CDN_SOURCES.length) {
+                if (window.__EJS_gameStarted) {
+                    console.log('[CDN] Todas as fontes testadas, mas o jogo está em execução. Abortando mensagens de erro.');
+                    return;
+                }
                 console.error('========================================');
                 console.error('[CDN] ❌ TODAS AS FONTES CDN FALHARAM');
                 console.error('========================================');
@@ -2170,6 +2214,11 @@
                 console.log(`[DIAGNOSTIC] EJS_onGameStart defined: ${typeof window.EJS_onGameStart === 'function'}`);
                 console.log(`[DIAGNOSTIC] EJS_startOnLoaded: ${window.EJS_startOnLoaded}`);
                 console.log(`[DIAGNOSTIC] DOM #game exists: ${!!document.getElementById('game')}`);
+                window.__EJS_lastLoaderSource = source.name;
+                if (window.__EJS_gameStarted) {
+                    console.log(`[CDN] ${source.name} carregado após o início do jogo; nenhum fallback adicional necessário.`);
+                    return;
+                }
                 
                 // 🔍 DEBUG: Interceptar console.log do EmulatorJS
                 const originalLog = console.log;
@@ -2220,6 +2269,10 @@
                 
                 // 🚀 FORÇAR AUTO-START APÓS 3 SEGUNDOS SE NÃO INICIAR
                 setTimeout(() => {
+                    if (window.__EJS_gameStarted) {
+                        console.log('[AUTO-START] Jogo já iniciado; ignora auto start.');
+                        return;
+                    }
                     console.log('[AUTO-START] Checking if game auto-started...');
                     
                     // Verifica se o jogo não iniciou ainda (loading screen ainda visível)
@@ -2270,15 +2323,27 @@
                 }, 3000); // Espera 3 segundos após carregar o loader.js
                 
                 // ✅ ADICIONA TIMEOUT PARA DETECTAR SE O EMULADOR NÃO INICIALIZA
-                setTimeout(() => {
-                    if (!loading.classList.contains('hidden')) {
-                        console.error('[CDN] ⚠️ Emulator loaded but not starting. Trying next CDN...');
-                        loadFromCdn(index + 1);
+                clearCdnBootGuard('reload watchdog');
+                cdnBootGuardTimeout = setTimeout(() => {
+                    if (window.__EJS_gameStarted) {
+                        console.log(`[CDN] Watchdog ignorado: jogo já iniciou (${source.name}).`);
+                        return;
                     }
+                    if (loading.classList.contains('hidden')) {
+                        console.log(`[CDN] Watchdog detectou loading oculto após ${source.name}; nenhuma ação necessária.`);
+                        return;
+                    }
+                    console.error('[CDN] ⚠️ Emulator loaded but not starting. Trying next CDN...');
+                    loadFromCdn(index + 1);
                 }, 15000); // 15 segundos para o emulador inicializar após carregar o script
             };
             
             loaderScript.onerror = (error) => {
+                if (window.__EJS_gameStarted) {
+                    console.warn(`[CDN] Erro de script em ${source.name} após início do jogo; ignorando.`, error);
+                    return;
+                }
+                clearCdnBootGuard('script error');
                 console.warn(`[CDN] ❌ Failed to load from ${source.name}`);
                 console.warn(`[CDN] Error details:`, error);
                 console.warn(`[CDN] Failed URL: ${source.base}loader.js`);
@@ -2289,12 +2354,17 @@
             
             // ⏱️ TIMEOUT: Se não carregar em 8 segundos, tenta próximo CDN
             const cdnTimeout = setTimeout(() => {
+                if (window.__EJS_gameStarted) {
+                    console.log(`[CDN] Timeout ignorado porque o jogo já iniciou (${source.name}).`);
+                    return;
+                }
                 if (loaderScript && loaderScript.parentNode) {
                     console.warn(`[CDN] ⏱️ Timeout loading from ${source.name} (8s)`);
                     console.warn(`[CDN] URL que falhou: ${source.base}loader.js`);
                     console.warn(`[CDN] Tentando próximo CDN...`);
                     loaderScript.remove();
                     loaderScript = null;
+                    clearCdnBootGuard('timeout');
                     loadFromCdn(index + 1);
                 }
             }, 8000); // 8 segundos para dar tempo em conexões lentas

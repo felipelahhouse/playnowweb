@@ -6,121 +6,6 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#000000">
-    <title>Universal Emulator Player</title>
-    
-    <!-- 🔕 SUPRESSÃO ULTRA-AGRESSIVA DE ERROS WEBSOCKET/PEERJS -->
-    <!-- DEVE SER O PRIMEIRO SCRIPT A EXECUTAR! -->
-    <script>
-        // Intercepta console.error IMEDIATAMENTE
-        (function() {
-            const _err = console.error;
-            console.error = function(...args) {
-                const msg = String(args[0] || '');
-                // Bloqueia QUALQUER erro relacionado a WebSocket/PeerJS
-                if (msg.includes('WebSocket') || msg.includes('peerjs') || 
-                    msg.includes('playnowweb') || msg.includes('wss://') ||
-                    msg.includes('_cleanup') || msg.includes('vendor') ||
-                    msg.includes('connection is established')) {
-                    return; // SILENCIA
-                }
-                _err.apply(console, args);
-            };
-        })();
-    </script>
-    
-    <!-- EmulatorJS CSS Local -->
-    <link rel="stylesheet" href="/emulatorjs/emulator.min.css">
-    
-    <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
-        body {
-            margin: 0;
-            padding: 0;
-            background: #000;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
-            overflow: hidden;
-            -webkit-tap-highlight-color: transparent;
-            -webkit-touch-callout: none;
-            -webkit-user-select: none;
-            user-select: none;
-        }
-        
-        #loading {
-            position: fixed;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%);
-            text-align: center;
-            color: #0ea5e9;
-            z-index: 9999;
-            padding: 30px;
-            max-width: 90%;
-            background: rgba(0, 0, 0, 0.95);
-            border-radius: 20px;
-            box-shadow: 0 10px 50px rgba(14, 165, 233, 0.3);
-            backdrop-filter: blur(10px);
-        }
-        
-        #loading.hidden {
-            display: none !important;
-            visibility: hidden !important;
-            opacity: 0 !important;
-            pointer-events: none !important;
-            width: 0 !important;
-            height: 0 !important;
-            position: absolute !important;
-            top: -9999px !important;
-            left: -9999px !important;
-            z-index: -9999 !important;
-        }
-        
-        .spinner {
-            width: 60px;
-            height: 60px;
-            border: 5px solid rgba(14, 165, 233, 0.2);
-            border-top-color: #0ea5e9;
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            margin: 0 auto 20px;
-        }
-        
-        @keyframes spin {
-            to { transform: rotate(360deg); }
-        }
-        
-        #status {
-            font-size: 14px;
-            font-weight: 600;
-            line-height: 1.6;
-            color: #0ea5e9;
-            margin-bottom: 15px;
-        }
-        
-        .status-details {
-            font-size: 12px;
-            color: #64748b;
-            margin-top: 8px;
-            font-weight: normal;
-        }
-        
-        /* Barra de progresso */
-        .progress-container {
-            width: 100%;
-            max-width: 300px;
-            height: 8px;
-            background: rgba(14, 165, 233, 0.2);
-            border-radius: 10px;
-            margin: 15px auto;
             overflow: hidden;
             position: relative;
         }
@@ -1035,8 +920,10 @@
         // ========================================
         // PeerJS Connection for WebRTC Multiplayer
         // ========================================
-        let peer = null;
-        let connections = new Map(); // Map de conexões P2P ativas
+    let peer = null;
+    let peerInitializationInProgress = false;
+    let peerLibraryLoading = false;
+    let connections = new Map(); // Map de conexões P2P ativas
         let peerRetryCount = 0;
         const MAX_PEER_RETRIES = 3;
         
@@ -1050,20 +937,39 @@
                 // Silenciosamente não inicializa (sem logs)
                 return;
             }
+
+            if (peer && !peer.destroyed) {
+                console.log('[PEERJS] 🔄 Conexão atual já está ativa, ignorando nova inicialização');
+                return;
+            }
+
+            if (peerInitializationInProgress) {
+                console.log('[PEERJS] ⏳ Inicialização PeerJS já em andamento, aguardando...');
+                return;
+            }
             
             // Carregar PeerJS library se não estiver disponível
             if (typeof Peer === 'undefined') {
+                if (peerLibraryLoading) {
+                    console.log('[PEERJS] ⏳ Biblioteca PeerJS já está em carregamento, aguardando…');
+                    return;
+                }
+
+                peerLibraryLoading = true;
                 console.log('[PEERJS] 📥 Carregando PeerJS library...');
                 const script = document.createElement('script');
                 script.src = 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
                 script.crossOrigin = 'anonymous';
                 script.timeout = 10000;
                 script.onload = () => {
+                    peerLibraryLoading = false;
                     console.log('[PEERJS] ✅ PeerJS library carregada');
                     setupPeerConnection(peerId, sessionId);
                 };
                 script.onerror = () => {
+                    peerLibraryLoading = false;
                     console.error('[PEERJS] ❌ Falha ao carregar PeerJS library');
+                    peerInitializationInProgress = false;
                 };
                 document.head.appendChild(script);
             } else {
@@ -1072,6 +978,21 @@
         }
         
         function setupPeerConnection(peerId, sessionId) {
+            if (peerInitializationInProgress) {
+                console.log('[PEERJS] ⏳ Já existe uma tentativa de conexão em andamento, ignorando duplicata');
+                return;
+            }
+
+            if (peer && !peer.destroyed) {
+                console.log('[PEERJS] 🔁 Peer ativo encontrado, reutilizando conexão atual');
+                return;
+            }
+
+            if (peer && peer.destroyed) {
+                peer = null;
+            }
+
+            peerInitializationInProgress = true;
             try {
                 console.log('═══════════════════════════════════════════════════════');
                 console.log('[PEERJS] 🚀🚀🚀 INICIALIZANDO PEERJS OTIMIZADO 🚀🚀🚀');
@@ -1109,6 +1030,8 @@
                 peer = new Peer(peerId, peerConfig);
                 
                 peer.on('open', (id) => {
+                    peerInitializationInProgress = false;
+                    peerRetryCount = 0;
                     console.log('╔════════════════════════════════════════════════════╗');
                     console.log('║ [PEERJS] ✅ CONECTADO AO PEERJS CLOUD ✅           ║');
                     console.log('║ Peer ID:', id);
@@ -1128,11 +1051,19 @@
                 });
                 
                 peer.on('error', (err) => {
+                    peerInitializationInProgress = false;
                     console.warn('[PEERJS] ⚠️ Erro detectado:', err.type, err.message);
                     
                     // Erros que são esperados/não-críticos
                     if (err.type === 'network' || err.type === 'server-error' || err.type === 'socket-error' || err.type === 'peer-unavailable') {
                         console.log('[PEERJS] ℹ️ Servidor PeerJS indisponível no momento');
+                        if (peer && !peer.destroyed) {
+                            try {
+                                peer.destroy();
+                            } catch (destroyErr) {
+                                console.warn('[PEERJS] ⚠️ Falha ao destruir peer anterior:', destroyErr);
+                            }
+                        }
                         // Tentar reconectar com backoff exponencial
                         if (peerRetryCount < MAX_PEER_RETRIES) {
                             peerRetryCount++;
@@ -1152,6 +1083,7 @@
                 });
                 
                 peer.on('disconnected', () => {
+                    peerInitializationInProgress = false;
                     console.log('[PEERJS] ⚠️ Desconectado do servidor');
                     // Tentar reconectar
                     if (!peer.destroyed) {
@@ -1160,10 +1092,13 @@
                 });
                 
                 peer.on('close', () => {
+                    peerInitializationInProgress = false;
+                    peer = null;
                     console.log('[PEERJS] 🔌 Conexão fechada');
                 });
                 
             } catch (err) {
+                peerInitializationInProgress = false;
                 console.error('[PEERJS] ❌ Erro ao inicializar:', err);
             }
         }
@@ -1897,6 +1832,7 @@
                             if (!gameStarted) {
                                 gameStarted = true;
                                 clearInterval(gameStartCheckInterval);
+                                markEmulatorStarted('fallback canvas detection');
                                 
                                 // Executa callbacks
                                 originalCallbacks.forEach(cb => {
@@ -2321,7 +2257,8 @@
                 
                 // ✅ TIMEOUT DE SEGURANÇA: Ajustado por plataforma + Multiplayer
                 // Multiplayer pode demorar mais por causa da conexão P2P
-                const isMultiplayer = sessionId !== 'undefined' && socketUrl !== 'undefined';
+                const multiplayerParams = new URLSearchParams(window.location.search);
+                const isMultiplayer = Boolean(multiplayerParams.get('peerId') || multiplayerParams.get('sessionId'));
                 let timeoutDuration;
                 if (isMultiplayer) {
                     // Modo Multiplayer: tempos MUITO maiores para evitar timeout prematuro

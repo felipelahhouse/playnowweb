@@ -440,16 +440,14 @@ const MultiplayerHostView: React.FC<MultiplayerHostViewProps> = ({
     if (!processedRomUrl || !user?.id || !user?.username) return null;
     const cacheBuster = Date.now();
 
-    // Get Socket.IO URL and base emulator HTML from environment
-    const socketUrl = import.meta.env.VITE_SOCKET_URL || '';
+    // Base emulator HTML para multiplayer PeerJS
     const emulatorBasePath = (import.meta.env.VITE_MULTIPLAYER_EMULATOR || '/universal-player.html').trim();
 
-    // Build URL with Socket.IO parameters for multiplayer + desabilitar controles mobile
+    // Build URL com parâmetros de PeerJS + desabilitar controles mobile
     const params = new URLSearchParams({
       rom: processedRomUrl,
       title: gameTitle,
       platform: platform,
-      socketUrl: socketUrl,
       sessionId: sessionId,
       userId: user.id,
       username: user.username || 'Host',
