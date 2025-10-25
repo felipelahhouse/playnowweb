@@ -118,20 +118,13 @@ app.use('/roms', express.static('public/roms', {
 // 🎮 PEERJS SERVER INTEGRATION - OTIMIZADO PARA RENDER.COM
 // ============================================================
 const peerServer = ExpressPeerServer(httpServer, {
-  debug: process.env.NODE_ENV !== 'production',
-  path: '/',
+  debug: true, // ✅ Sempre ativar debug para ver logs
+  path: '/peerjs', // ✅ Path completo
   allow_discovery: true,
   proxied: true, // ✅ Importante para Render.com (reverse proxy)
   alive_timeout: 60000,
   key: 'peerjs',
-  concurrent_limit: 5000,
-  // ✅ NOVO: Configurações adicionais
-  port: parseInt(process.env.PORT) || 10000,
-  ssl: {}, // ✅ Render.com gerencia SSL
-  corsOptions: {
-    origin: '*',
-    credentials: true
-  }
+  concurrent_limit: 5000
 });
 
 app.use('/peerjs', peerServer);
