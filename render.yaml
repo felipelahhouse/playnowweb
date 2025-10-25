@@ -1,9 +1,10 @@
 services:
   - type: web
     name: playnowweb
-    env: node
-    buildCommand: cd server && npm install
-    startCommand: cd server && npm start
+    runtime: node
+    plan: free
+    buildCommand: npm install --production=false
+    startCommand: npm start
     envVars:
       - key: NODE_ENV
         value: production

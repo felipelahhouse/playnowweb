@@ -152,6 +152,14 @@ peerServer.on('error', (error) => {
   console.error('❌ [PeerJS] Server Error:', error);
 });
 
+// 🔍 Melhor logging para debug
+app.use((req, res, next) => {
+  if (req.path.includes('peerjs')) {
+    console.log(`📡 [REQUEST] ${req.method} ${req.path}`);
+  }
+  next();
+});
+
 console.log('🎮 [PeerJS] Server initialized on /peerjs');
 
 // ============================================================

@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "vite",
     "server": "node server/server.js",
+    "start": "node server/server.js",
     "dev-with-server": "concurrently \"npm run server\" \"npm run dev\"",
     "build": "node scripts/generate-version.mjs && vite build",
     "build:analyze": "npm run build && node analyze-performance.js",

@@ -15,7 +15,7 @@ const PEER_SERVERS = [
   {
     host: 'playnowweb.onrender.com',
     port: 443,
-    path: '/peerjs',
+    path: '/', // ✅ Deve ser apenas '/' - o servidor já está em /peerjs
     secure: true,
     name: 'PlayNow Server (Render)'
   },
