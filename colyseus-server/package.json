@@ -6,6 +6,7 @@
   "scripts": {
     "dev": "ts-node src/index.ts",
     "build": "tsc",
+    "rebuild": "tsc",
     "start": "node dist/index.js"
   },
   "dependencies": {

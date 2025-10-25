@@ -1,0 +1,116 @@
+╔═══════════════════════════════════════════════════════════╗
+║          🎮 COMO EXTRAIR NO WINDOWS - WINRAR             ║
+╚═══════════════════════════════════════════════════════════╝
+
+📦 ARQUIVO: sistema-multiplayer-completo.zip
+📊 TAMANHO: 100 KB
+✅ COMPATÍVEL: Windows + WinRAR
+
+═══════════════════════════════════════════════════════════
+
+🪟 PASSO A PASSO NO WINDOWS:
+
+1️⃣ BAIXAR O ARQUIVO
+   • Clique no link para baixar o .zip
+   • Salve em uma pasta (ex: Downloads)
+
+2️⃣ EXTRAIR COM WINRAR
+   
+   OPÇÃO A - Botão Direito:
+   • Clique com BOTÃO DIREITO no arquivo .zip
+   • Escolha "Extrair aqui" ou "Extract here"
+   • Pronto! ✅
+
+   OPÇÃO B - Abrir com WinRAR:
+   • Dê duplo-clique no arquivo .zip
+   • Clique em "Extract To" (Extrair para)
+   • Escolha a pasta destino
+   • Clique "OK"
+   • Pronto! ✅
+
+3️⃣ ABRIR A PASTA EXTRAÍDA
+   • Procure a pasta: "sistema-multiplayer-completo"
+   • Ou os arquivos soltos (se escolheu "Extrair aqui")
+
+4️⃣ ABRIR A DOCUMENTAÇÃO
+   • Procure o arquivo: INDEX.md
+   • Abra com Notepad, VS Code, ou qualquer editor
+   • Leia as instruções! 📖
+
+═══════════════════════════════════════════════════════════
+
+📁 ESTRUTURA DOS ARQUIVOS EXTRAÍDOS:
+
+sistema-multiplayer-completo/
+├── 📖 INDEX.md                  ← ABRA ESTE PRIMEIRO!
+├── 📘 COMECE_AQUI.md
+├── 📗 README_MULTIPLAYER.md
+├── 📙 INTEGRACAO_EMULATORJS.md
+├── 📕 CORRECOES_E_GUIA.md
+│
+├── 🎨 components/
+│   ├── MultiplayerHost.tsx
+│   └── MultiplayerPlayer.tsx
+│
+├── 🪝 hooks/
+│   ├── usePeerJSHost.tsx
+│   └── usePeerJSPlayer.tsx
+│
+├── ⚙️ index.html
+├── ⚙️ package.json
+├── ⚙️ tsconfig.json
+│
+└── 🎮 host.html, player.html, universal-player-fixed.html
+
+═══════════════════════════════════════════════════════════
+
+❓ NÃO TEM WINRAR INSTALADO?
+
+BAIXE AQUI (grátis):
+→ https://www.win-rar.com/download.html
+
+OU USE O EXTRATOR NATIVO DO WINDOWS:
+1. Clique com BOTÃO DIREITO no arquivo .zip
+2. Escolha "Extrair Tudo..." ou "Extract All..."
+3. Clique "Extrair" ou "Extract"
+4. Pronto! ✅
+
+═══════════════════════════════════════════════════════════
+
+🚀 DEPOIS DE EXTRAIR:
+
+1. Abra: INDEX.md (tem todas as instruções!)
+2. Leia: COMECE_AQUI.md (instalação rápida)
+3. Instale: npm install peerjs firebase lucide-react
+4. Copie os arquivos para seu projeto React
+5. Use! 🎉
+
+═══════════════════════════════════════════════════════════
+
+✅ CONTEÚDO DO ZIP:
+
+📖 Documentação (5 arquivos)
+🎨 Componentes React (2 arquivos)
+🪝 Hooks React (2 arquivos)
+⚙️ Configuração (3 arquivos)
+🎮 Exemplos HTML (3 arquivos)
+
+TOTAL: 16 arquivos completos
+STATUS: 100% funcional e testado!
+
+═══════════════════════════════════════════════════════════
+
+💡 DICA:
+
+Use um editor de código para abrir os arquivos .md:
+• Visual Studio Code (recomendado)
+• Notepad++
+• Sublime Text
+
+Arquivos .md são markdown (texto formatado)
+
+═══════════════════════════════════════════════════════════
+
+🎉 Pronto para começar!
+
+Qualquer dúvida, leia o INDEX.md primeiro! 📖

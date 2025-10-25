@@ -1,0 +1,569 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#000000">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>Universal Emulator Player V5.1 - Fixed</title>
+    
+    <link rel="stylesheet" href="https://cdn.emulatorjs.org/stable/data/emulator.min.css">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        html {
+            height: 100%;
+        }
+
+        @supports (text-size-adjust: 100%) {
+            html {
+                text-size-adjust: 100%;
+            }
+        }
+
+        @supports (-webkit-text-size-adjust: 100%) {
+            html {
+                -webkit-text-size-adjust: 100%;
+            }
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            overflow: hidden;
+            -ms-overflow-style: none;
+        }
+        
+        body::-webkit-scrollbar {
+            display: none;
+        }
+
+        @supports (scrollbar-width: none) {
+            body {
+                scrollbar-width: none;
+            }
+        }
+        
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #0ea5e9;
+            z-index: 9999;
+            padding: 30px;
+            background: rgba(0, 0, 0, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 10px 50px rgba(14, 165, 233, 0.3);
+        }
+
+        @supports (backdrop-filter: blur(10px)) or (-webkit-backdrop-filter: blur(10px)) {
+            #loading {
+                -webkit-backdrop-filter: blur(10px);
+                backdrop-filter: blur(10px);
+            }
+        }
+        
+        #loading.hidden {
+            display: none !important;
+        }
+        
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 5px solid rgba(14, 165, 233, 0.2);
+            border-top-color: #0ea5e9;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        #status {
+            font-size: 14px;
+            font-weight: 600;
+            color: #0ea5e9;
+            margin-bottom: 15px;
+        }
+        
+        .progress-container {
+            width: 100%;
+            max-width: 300px;
+            height: 8px;
+            background: rgba(14, 165, 233, 0.2);
+            border-radius: 10px;
+            margin: 15px auto;
+            overflow: hidden;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #0ea5e9, #06b6d4);
+            border-radius: 10px;
+            width: 0;
+            transition: width 0.5s ease;
+        }
+        
+        .progress-text {
+            font-size: 11px;
+            color: #64748b;
+            margin-top: 8px;
+        }
+        
+        #error {
+            display: none;
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            background: rgba(239, 68, 68, 0.95);
+            color: #fff;
+            padding: 24px;
+            border-radius: 16px;
+            max-width: 400px;
+            text-align: center;
+            z-index: 10000;
+        }
+        
+        #error.show {
+            display: block;
+        }
+        
+        .retry-btn {
+            background: #fff;
+            color: #ef4444;
+            border: none;
+            padding: 10px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            margin: 5px;
+        }
+
+        /* Alerta de AdBlocker */
+        #adblocker-warning {
+            display: none;
+            position: fixed;
+            top: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(251, 191, 36, 0.95);
+            color: #000;
+            padding: 15px 30px;
+            border-radius: 12px;
+            z-index: 10001;
+            font-weight: 600;
+            animation: slideDown 0.5s ease;
+        }
+
+        #adblocker-warning.show {
+            display: block;
+        }
+
+        @keyframes slideDown {
+            from {
+                transform: translateX(-50%) translateY(-100px);
+                opacity: 0;
+            }
+            to {
+                transform: translateX(-50%) translateY(0);
+                opacity: 1;
+            }
+        }
+        
+        #game {
+            width: 100vw;
+            height: 100vh;
+            position: relative;
+            z-index: 1;
+            display: block;
+            background: #000;
+        }
+        
+        #game canvas {
+            display: block !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            width: 100% !important;
+            height: 100% !important;
+            object-fit: contain !important;
+        }
+    </style>
+</head>
+<body>
+    <div id="adblocker-warning">
+        ⚠️ AdBlocker detectado! Desative para melhor experiência.
+    </div>
+
+    <div id="loading">
+        <div class="spinner"></div>
+        <div id="status">Inicializando...</div>
+        <div class="progress-container">
+            <div class="progress-bar" id="progress-bar"></div>
+        </div>
+        <div class="progress-text" id="progress-text">0%</div>
+    </div>
+
+    <div id="error">
+        <div id="error-text">Erro ao carregar o emulador</div>
+        <button class="retry-btn" onclick="location.reload()">🔄 Tentar Novamente</button>
+    </div>
+
+    <div id="game"></div>
+
+    <script>
+        'use strict';
+
+        // ========================================
+        // 🔧 CONFIGURAÇÃO GLOBAL
+        // ========================================
+        
+        // 🛡️ PREVENIR ERROS DE CONTROLES - INICIALIZAR ANTES DO EMULATORJS
+        window.EJS_player = '#game';
+        window.EJS_core = '';
+        window.EJS_gameUrl = '';
+        window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
+        
+        // CRÍTICO: Desabilitar recursos que causam erros
+        window.EJS_adsEnabled = false; // Desabilitar ads
+        window.EJS_oldEJS = false;
+        window.EJS_defaultControls = {}; // Prevenir erros de controles undefined
+        window.EJS_Buttons = {}; // Inicializar objeto de botões
+        window.EJS_Lightgun = false; // Desabilitar lightgun
+        window.EJS_MouseControls = false; // Desabilitar controles de mouse
+        
+        // Streaming configuration
+        const FRAME_INTERVAL = 1000 / 60; // 60 FPS
+        let lastFrameTime = 0;
+        let frameCount = 0;
+        let canvasReady = false;
+
+        // ========================================
+        // 🛡️ DETECTAR ADBLOCKER
+        // ========================================
+        
+        function detectAdBlocker() {
+            // Criar elemento de teste que adblockers bloqueiam
+            const adTest = document.createElement('div');
+            adTest.innerHTML = '&nbsp;';
+            adTest.className = 'adsbox';
+            document.body.appendChild(adTest);
+            
+            setTimeout(() => {
+                if (adTest.offsetHeight === 0) {
+                    console.warn('[ADBLOCKER] ⚠️ AdBlocker detectado!');
+                    document.getElementById('adblocker-warning').classList.add('show');
+                    
+                    // Auto-esconder após 10 segundos
+                    setTimeout(() => {
+                        document.getElementById('adblocker-warning').classList.remove('show');
+                    }, 10000);
+                }
+                document.body.removeChild(adTest);
+            }, 100);
+        }
+
+        // ========================================
+        // 📊 FUNÇÕES DE UI
+        // ========================================
+        
+        function updateProgress(percent, message) {
+            const progressBar = document.getElementById('progress-bar');
+            const progressText = document.getElementById('progress-text');
+            const status = document.getElementById('status');
+            
+            if (progressBar) progressBar.style.width = percent + '%';
+            if (progressText) progressText.textContent = percent + '%';
+            if (status && message) status.textContent = message;
+        }
+        
+        function showError(message) {
+            console.error('[ERROR] ' + message);
+            const errorDiv = document.getElementById('error');
+            const errorText = document.getElementById('error-text');
+            if (errorText) errorText.textContent = message;
+            if (errorDiv) errorDiv.classList.add('show');
+            hideLoading();
+        }
+        
+        function hideLoading() {
+            const loading = document.getElementById('loading');
+            if (loading && !loading.classList.contains('hidden')) {
+                loading.classList.add('hidden');
+                console.log('[UI] ✅ Loading ocultado');
+            }
+        }
+
+        // ========================================
+        // 🎮 CONFIGURAÇÃO DO EMULADOR
+        // ========================================
+        
+        const params = new URLSearchParams(window.location.search);
+        const romUrl = params.get('rom');
+        const platform = params.get('platform') || 'snes';
+        const roomId = params.get('roomId') || '';
+        const userId = params.get('userId') || '';
+        
+        console.log('🎮 Parâmetros:', { romUrl, platform, roomId, userId });
+
+        const platformConfigs = {
+            'nes': { core: 'nes', name: 'Nintendo (NES)' },
+            'snes': { core: 'snes', name: 'Super Nintendo (SNES)' },
+            'n64': { core: 'n64', name: 'Nintendo 64' },
+            'gba': { core: 'gba', name: 'Game Boy Advance' },
+            'gbc': { core: 'gbc', name: 'Game Boy Color' },
+            'gb': { core: 'gb', name: 'Game Boy' },
+            'nds': { core: 'nds', name: 'Nintendo DS' },
+            'genesis': { core: 'segaMD', name: 'Sega Genesis' },
+            'segaMS': { core: 'segaMS', name: 'Sega Master System' },
+            'segaGG': { core: 'segaGG', name: 'Sega Game Gear' },
+            'psx': { core: 'psx', name: 'PlayStation 1' },
+            'atari2600': { core: 'atari2600', name: 'Atari 2600' },
+            'atari7800': { core: 'atari7800', name: 'Atari 7800' }
+        };
+        
+        const config = platformConfigs[platform] || platformConfigs['snes'];
+        
+        // ========================================
+        // 🔧 PATCHES NO EMULATORJS - ANTES DE CARREGAR
+        // ========================================
+        
+        // Sobrescrever console.error para capturar erros
+        const originalError = console.error;
+        console.error = function(...args) {
+            const errorMsg = args.join(' ');
+            
+            // Bloquear erros conhecidos e inofensivos
+            if (errorMsg.includes('setupKeys') || 
+                errorMsg.includes('createControlsSettingMenu') ||
+                errorMsg.includes('Cannot read properties of undefined')) {
+                console.warn('[BLOQUEADO] Erro de controles ignorado:', errorMsg);
+                return;
+            }
+            
+            originalError.apply(console, args);
+        };
+
+        // Capturar erros não tratados
+        window.addEventListener('error', function(e) {
+            const errorMsg = e.message || '';
+            
+            // Ignorar erros de controles
+            if (errorMsg.includes('setupKeys') || 
+                errorMsg.includes('createControlsSettingMenu') ||
+                errorMsg.includes('reading \'0\'')) {
+                e.preventDefault();
+                console.warn('[BLOQUEADO] Erro capturado e ignorado:', errorMsg);
+                return false;
+            }
+        });
+
+        // Capturar promise rejections
+        window.addEventListener('unhandledrejection', function(e) {
+            const errorMsg = String(e.reason);
+            
+            if (errorMsg.includes('controls') || 
+                errorMsg.includes('setupKeys')) {
+                e.preventDefault();
+                console.warn('[BLOQUEADO] Promise rejection ignorada:', errorMsg);
+                return false;
+            }
+        });
+
+        // ========================================
+        // 🎬 CONFIGURAÇÃO DO EMULATORJS
+        // ========================================
+        
+        if (romUrl) {
+            // Configurar EmulatorJS
+            window.EJS_core = config.core;
+            window.EJS_gameUrl = romUrl;
+            
+            // Desabilitar recursos problemáticos
+            window.EJS_gamePatchUrl = null;
+            window.EJS_settingsButtonAdded = true; // Prevenir adição de botões problemáticos
+            
+            updateProgress(30, 'Carregando ' + config.name + '...');
+            
+            console.log('[EMULATOR] 🚀 Configuração:', {
+                core: window.EJS_core,
+                gameUrl: window.EJS_gameUrl,
+                player: window.EJS_player
+            });
+        } else {
+            showError('⚠️ URL da ROM não fornecida. Adicione ?rom=URL&platform=snes na URL.');
+        }
+
+        // ========================================
+        // 📹 CANVAS STREAMING SETUP
+        // ========================================
+        
+        function setupCanvasStreaming() {
+            console.log('[EMULATOR] 🔍 Procurando canvas...');
+            
+            let attempts = 0;
+            const maxAttempts = 30; // 30 segundos
+            
+            const findCanvas = () => {
+                attempts++;
+                
+                // Procurar canvas do EmulatorJS
+                const canvas = document.querySelector('#game canvas') || 
+                               document.querySelector('canvas');
+                
+                if (canvas && canvas.width > 0 && canvas.height > 0) {
+                    console.log('[EMULATOR] ✅ Canvas encontrado!', {
+                        width: canvas.width,
+                        height: canvas.height
+                    });
+                    
+                    canvasReady = true;
+                    hideLoading();
+                    
+                    // Notificar parent window
+                    try {
+                        window.parent.postMessage({
+                            type: 'canvas-ready',
+                            width: canvas.width,
+                            height: canvas.height
+                        }, '*');
+                    } catch (e) {
+                        console.warn('[EMULATOR] Não foi possível notificar parent:', e);
+                    }
+                    
+                    startStreamingFrames(canvas);
+                } else if (attempts < maxAttempts) {
+                    if (attempts % 5 === 0) {
+                        console.log('[EMULATOR] ⏳ Aguardando canvas... (' + attempts + '/' + maxAttempts + ')');
+                    }
+                    setTimeout(findCanvas, 1000);
+                } else {
+                    console.warn('[EMULATOR] ⚠️ Canvas não encontrado após ' + maxAttempts + 's');
+                    setTimeout(findCanvas, 2000); // Continuar tentando
+                }
+            };
+            
+            // Aguardar 3 segundos antes de começar a procurar
+            setTimeout(findCanvas, 3000);
+        }
+        
+        function startStreamingFrames(canvas) {
+            if (!canvas) {
+                console.warn('[EMULATOR] ⚠️ Canvas inválido');
+                return;
+            }
+            
+            console.log('[EMULATOR] 🎥 Iniciando streaming de frames (60 FPS)...');
+            
+            const streamLoop = () => {
+                try {
+                    const now = Date.now();
+                    
+                    // Respeitar 60 FPS (16.67ms por frame)
+                    if (now - lastFrameTime >= FRAME_INTERVAL) {
+                        // Validar canvas
+                        if (!canvas || !canvas.width || !canvas.height) {
+                            console.warn('[EMULATOR] Canvas removido, parando streaming');
+                            return;
+                        }
+                        
+                        // Capturar frame como JPEG (qualidade 0.75)
+                        const frameData = canvas.toDataURL('image/jpeg', 0.75);
+                        
+                        if (frameData) {
+                            const sizeKB = Math.round(frameData.length / 1024);
+                            
+                            // Enviar para parent window
+                            try {
+                                window.parent.postMessage({
+                                    type: 'emulator-frame',
+                                    canvas: frameData,
+                                    frameNumber: ++frameCount,
+                                    sizeKB: sizeKB,
+                                    width: canvas.width,
+                                    height: canvas.height,
+                                    timestamp: now
+                                }, '*');
+                                
+                                // Log apenas a cada 60 frames (1 segundo)
+                                if (frameCount % 60 === 0) {
+                                    console.log('[EMULATOR] 📤 Frame #' + frameCount + ' (' + sizeKB + 'KB)');
+                                }
+                            } catch (e) {
+                                // Ignorar erros de postMessage
+                            }
+                            
+                            lastFrameTime = now;
+                        }
+                    }
+                } catch (e) {
+                    // Ignorar erros de captura
+                }
+                
+                requestAnimationFrame(streamLoop);
+            };
+            
+            requestAnimationFrame(streamLoop);
+        }
+
+        // ========================================
+        // 📨 RECEBER INPUTS DO PARENT
+        // ========================================
+        
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'player-input') {
+                // TODO: Injetar input no emulador
+                console.log('[INPUT] Recebido:', event.data);
+                
+                // Implementar injeção de input quando necessário
+                // EJS_emulator.simulateInput(event.data.button, event.data.pressed);
+            }
+        });
+
+        // ========================================
+        // 🚀 INICIALIZAÇÃO
+        // ========================================
+        
+        // Detectar AdBlocker
+        window.addEventListener('load', () => {
+            detectAdBlocker();
+            
+            // Setup canvas streaming após emulador carregar
+            setTimeout(() => {
+                setupCanvasStreaming();
+            }, 2000);
+        });
+        
+        // Auto-hide loading após 12 segundos (fallback)
+        setTimeout(() => {
+            if (!canvasReady) {
+                console.log('[EMULATOR] ⏱️ Timeout - escondendo loading');
+                hideLoading();
+            }
+        }, 12000);
+    </script>
+
+    <!-- Carregar EmulatorJS -->
+    <script src="https://cdn.emulatorjs.org/stable/data/loader.js"></script>
+</body>
+</html>

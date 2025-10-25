@@ -20,7 +20,7 @@ import type { StreamConfig } from './components/Streaming/StreamSetupModal';
 
 const LiveStreamGrid = lazy(() => import('./components/Streaming/LiveStreamGrid'));
 const MultiplayerLobby = lazy(() => import('./components/Multiplayer/MultiplayerLobby'));
-const MultiplayerPlayerComponent = lazy(() => import('./components/Multiplayer/MultiplayerPlayer_old'));
+const MultiplayerPlayerComponent = lazy(() => import('./components/Multiplayer/MultiplayerPlayer'));
 const MultiplayerHostView = lazy(() => import('./components/Multiplayer/MultiplayerHostView'));
 const StreamerView = lazy(() => import('./components/Streaming/StreamerView'));
 const StreamSetupModal = lazy(() => import('./components/Streaming/StreamSetupModal'));

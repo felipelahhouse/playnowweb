@@ -1,0 +1,63 @@
+// src/lib/firebase.ts
+// Template de configuração do Firebase
+// 
+// INSTRUÇÕES:
+// 1. Renomeie este arquivo de firebase.ts.example para firebase.ts
+// 2. Vá para https://console.firebase.google.com
+// 3. Crie um novo projeto ou use um existente
+// 4. Vá em Project Settings > General > Your apps
+// 5. Adicione um Web App (ícone </>) se ainda não tiver
+// 6. Copie as credenciais e cole abaixo
+// 7. Habilite Firestore Database no console Firebase
+
+import { initializeApp } from 'firebase/app';
+import { getFirestore } from 'firebase/firestore';
+
+// 🔥 SUBSTITUA COM SUAS CREDENCIAIS DO FIREBASE
+const firebaseConfig = {
+  apiKey: "AIza...", // Sua API Key aqui
+  authDomain: "seu-projeto.firebaseapp.com",
+  projectId: "seu-projeto",
+  storageBucket: "seu-projeto.appspot.com",
+  messagingSenderId: "123456789",
+  appId: "1:123456789:web:abc123"
+};
+
+// Inicializar Firebase
+const app = initializeApp(firebaseConfig);
+
+// Inicializar Firestore
+export const db = getFirestore(app);
+
+// Exportar app para uso futuro se necessário
+export default app;
+
+// 📝 REGRAS DE SEGURANÇA DO FIRESTORE
+// Adicione estas regras no Firebase Console > Firestore Database > Rules:
+/*
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /multiplayer_sessions/{sessionId} {
+      // Qualquer um pode ler sessões
+      allow read: if true;
+      
+      // Apenas autenticados podem criar
+      allow create: if request.auth != null;
+      
+      // Apenas o host pode atualizar
+      allow update: if request.auth != null 
+        && request.auth.uid == resource.data.hostUserId;
+      
+      // Apenas o host pode deletar
+      allow delete: if request.auth != null 
+        && request.auth.uid == resource.data.hostUserId;
+    }
+  }
+}
+*/
+
+// 🔒 NOTA DE SEGURANÇA:
+// As regras acima permitem leitura pública das sessões.
+// Se você quiser mais segurança, ajuste as regras conforme necessário.
+// Para desenvolvimento/teste, as regras acima são adequadas.

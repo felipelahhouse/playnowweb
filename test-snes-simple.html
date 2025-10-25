@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste SNES Simples</title>
+    <link rel="stylesheet" href="/emulatorjs/emulator.min.css">
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+        }
+        #game {
+            width: 100vw;
+            height: 100vh;
+        }
+        #info {
+            position: fixed;
+            top: 10px;
+            left: 10px;
+            background: rgba(0,0,0,0.8);
+            color: #0ea5e9;
+            padding: 20px;
+            border-radius: 10px;
+            font-family: monospace;
+            font-size: 12px;
+            max-width: 400px;
+            z-index: 9999;
+        }
+        .log {
+            margin: 5px 0;
+            padding: 5px;
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+        }
+        .success { color: #10b981; }
+        .error { color: #ef4444; }
+        .warning { color: #f59e0b; }
+    </style>
+</head>
+<body>
+    <div id="info">
+        <h3>🎮 Teste SNES - Super Mario World</h3>
+        <div id="logs"></div>
+    </div>
+    <div id="game"></div>
+
+    <script>
+        function log(message, type = 'info') {
+            const logsDiv = document.getElementById('logs');
+            const logEl = document.createElement('div');
+            logEl.className = `log ${type}`;
+            logEl.textContent = message;
+            logsDiv.appendChild(logEl);
+            console.log(`[${type.toUpperCase()}]`, message);
+            
+            // Auto-scroll
+            logsDiv.scrollTop = logsDiv.scrollHeight;
+        }
+
+        log('🚀 Iniciando teste...', 'info');
+        
+        // Configuração mínima do EmulatorJS
+        log('⚙️ Configurando EmulatorJS...', 'info');
+        
+        window.EJS_player = '#game';
+        window.EJS_core = 'snes9x';
+        window.EJS_gameUrl = '/roms/snes/Super Mario World.sfc';
+        window.EJS_gameName = 'Super Mario World';
+        window.EJS_pathtodata = '/emulatorjs/';
+        window.EJS_startOnLoaded = true;
+        window.EJS_color = '#0ea5e9';
+        
+        log('✅ Configurações definidas:', 'success');
+        log(`  - Core: ${window.EJS_core}`, 'info');
+        log(`  - ROM: ${window.EJS_gameUrl}`, 'info');
+        log(`  - Path: ${window.EJS_pathtodata}`, 'info');
+        
+        // Callbacks
+        window.EJS_onGameStart = function() {
+            log('✅✅✅ JOGO INICIOU!', 'success');
+            document.getElementById('info').style.display = 'none';
+        };
+        
+        window.EJS_onError = function(error) {
+            log('❌ ERRO: ' + error, 'error');
+        };
+        
+        // Verifica se ROM é acessível
+        log('🔍 Testando acesso à ROM...', 'info');
+        fetch(window.EJS_gameUrl, { method: 'HEAD' })
+            .then(response => {
+                if (response.ok) {
+                    const size = response.headers.get('content-length');
+                    log(`✅ ROM acessível! Tamanho: ${(size/1024).toFixed(2)} KB`, 'success');
+                } else {
+                    log(`⚠️ ROM retornou status: ${response.status}`, 'warning');
+                }
+            })
+            .catch(error => {
+                log(`⚠️ Erro ao testar ROM: ${error.message}`, 'warning');
+            });
+        
+        // Carrega o EmulatorJS
+        log('📥 Carregando EmulatorJS...', 'info');
+        const script = document.createElement('script');
+        script.src = '/emulatorjs/loader.js';
+        script.onload = () => {
+            log('✅ EmulatorJS carregado!', 'success');
+            log('⏳ Aguardando inicialização do jogo...', 'info');
+        };
+        script.onerror = (error) => {
+            log('❌ ERRO ao carregar EmulatorJS!', 'error');
+            log('Verifique se /emulatorjs/loader.js existe', 'error');
+        };
+        document.body.appendChild(script);
+        
+        // Timeout de segurança
+        setTimeout(() => {
+            const logs = document.getElementById('logs');
+            if (logs.textContent.includes('JOGO INICIOU')) {
+                log('✅ Teste concluído com sucesso!', 'success');
+            } else {
+                log('⚠️ Jogo ainda não iniciou após 30 segundos', 'warning');
+                log('Verifique o console do navegador para mais detalhes', 'warning');
+            }
+        }, 30000);
+    </script>
+</body>
+</html>

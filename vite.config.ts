@@ -94,7 +94,17 @@ export default defineConfig({
   },
   build: {
     target: 'es2020',
-    minify: false, // ✅ DESABILITAR MINIFICAÇÃO para debug
+    minify: 'terser', // ✅ HABILITAR MINIFICAÇÃO com Terser
+    terserOptions: {
+      compress: {
+        drop_console: true, // Remove console.log em produção
+        drop_debugger: true,
+        pure_funcs: ['console.log', 'console.info', 'console.debug'],
+      },
+      format: {
+        comments: false, // Remove comentários
+      },
+    },
     commonjsOptions: {
       transformMixedEsModules: true,
       ignore: ['node:events', 'node:stream', 'node:util']
@@ -105,12 +115,26 @@ export default defineConfig({
         entryFileNames: 'assets/[name].[hash].js',
         chunkFileNames: 'assets/[name].[hash].js',
         assetFileNames: 'assets/[name].[hash].[ext]',
-        // ✅ SEM CODE SPLITTING - Tudo em um bundle só
-        inlineDynamicImports: true
+        // ✅ MANUALCHUNKS SIMPLES - Apenas vendors essenciais
+        manualChunks: (id) => {
+          // Firebase em chunk separado (grande e raramente muda)
+          if (id.includes('node_modules/firebase') || id.includes('node_modules/@firebase')) {
+            return 'firebase-vendor';
+          }
+          // Lucide icons separado
+          if (id.includes('node_modules/lucide-react')) {
+            return 'ui-vendor';
+          }
+          // Todo o resto do node_modules em um único vendor
+          if (id.includes('node_modules')) {
+            return 'vendor';
+          }
+          // Código da aplicação fica no index
+        },
       }
     },
-    chunkSizeWarningLimit: 2000,
-    cssCodeSplit: false,
+    chunkSizeWarningLimit: 1000,
+    cssCodeSplit: false, // ✅ Desabilitar CSS split para evitar problemas
     sourcemap: false,
     reportCompressedSize: false,
     assetsInlineLimit: 4096,

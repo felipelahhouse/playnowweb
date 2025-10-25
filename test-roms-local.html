@@ -1,0 +1,175 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Teste de ROMs Locais</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            padding: 20px;
+            max-width: 1200px;
+            margin: 0 auto;
+            background: #1a1a1a;
+            color: #fff;
+        }
+        h1 {
+            color: #0ea5e9;
+        }
+        .test-result {
+            padding: 10px;
+            margin: 5px 0;
+            border-radius: 5px;
+            font-family: monospace;
+        }
+        .success {
+            background: #10b981;
+            color: white;
+        }
+        .error {
+            background: #ef4444;
+            color: white;
+        }
+        .testing {
+            background: #f59e0b;
+            color: white;
+        }
+        button {
+            background: #0ea5e9;
+            color: white;
+            border: none;
+            padding: 15px 30px;
+            border-radius: 8px;
+            font-size: 16px;
+            cursor: pointer;
+            margin: 10px 0;
+        }
+        button:hover {
+            background: #0284c7;
+        }
+        #results {
+            margin-top: 20px;
+        }
+    </style>
+</head>
+<body>
+    <h1>🎮 Teste de ROMs SNES Locais</h1>
+    <p>Este teste verificará se as ROMs SNES estão acessíveis na pasta <code>/roms/snes/</code></p>
+    
+    <button onclick="testSNESRoms()">🧪 Testar ROMs SNES</button>
+    <button onclick="clearResults()">🗑️ Limpar Resultados</button>
+    
+    <div id="results"></div>
+
+    <script>
+        const snesRoms = [
+            "Aladdin (U) [!].smc",
+            "Battletoads & Double Dragon - The Ultimate Team (U) [!].smc",
+            "Battletoads in Battlemaniacs (U) [!].smc",
+            "Battletoads-Double Dragon.sfc",
+            "Castlevania - Dracula X (U) [!].smc",
+            "Championship Pool.sfc",
+            "Chrono Trigger.sfc",
+            "Congo's Caper.sfc",
+            "Contra III - The Alien Wars.sfc",
+            "Donkey Kong Country 3 - Dixie Kong's Double Trouble! (USA) (En,Fr).sfc",
+            "Dragon Ball Z - Super Butouden 2 (J) (V1.1).smc",
+            "Fatal Fury 2.smc",
+            "Fatal Fury Special.smc",
+            "Goof Troop.smc",
+            "Joe & Mac 2 - Lost in the Tropics (U).smc",
+            "Killer Instinct.smc",
+            "Kirby Super Star.sfc",
+            "Legend of Zelda, The - A Link to the Past (USA) (1).sfc",
+            "Magical Quest Starring Mickey Mouse.smc",
+            "Marvel Super Heroes in War of the Gems.sfc",
+            "Mega Man X (U) (V1.0) .smc",
+            "Metal Warriors.sfc",
+            "Mickey to Donald - Magical Adventure 3 (J) [t2].smc",
+            "Mighty Morphin Power Rangers - The Fighting Edition.sfc",
+            "Mighty Morphin Power Rangers - The Movie (U).smc",
+            "Mighty Morphin Power Rangers.smc",
+            "Mortal Kombat II.sfc",
+            "Mutant Chronicles - Doom Troopers.smc",
+            "Prehistorik Man.smc",
+            "Rock N' Roll Racing.sfc",
+            "Secret of Mana.sfc",
+            "Sparkster.smc",
+            "Spider-Man - Venom - Maximum Carnage.sfc",
+            "Star Fox 2.sfc",
+            "Street Fighter Alpha 2.smc",
+            "Sunset Riders.sfc",
+            "Super Mario World.sfc",
+            "Super Metroid).sfc",
+            "Super Punch-Out!!.sfc",
+            "Teenage Mutant Ninja Turtles IV - Turtles in Time (USA).sfc",
+            "Todd McFarlane's Spawn - The Video Game.sfc",
+            "Top Gear.sfc",
+            "Wild Guns .sfc"
+        ];
+
+        async function testRom(romFile) {
+            const romUrl = `/roms/snes/${romFile}`;
+            const resultsDiv = document.getElementById('results');
+            
+            const testDiv = document.createElement('div');
+            testDiv.className = 'test-result testing';
+            testDiv.textContent = `⏳ Testando: ${romFile}...`;
+            resultsDiv.appendChild(testDiv);
+
+            try {
+                const response = await fetch(romUrl, {
+                    method: 'HEAD',
+                    cache: 'no-cache'
+                });
+
+                if (response.ok) {
+                    const contentLength = response.headers.get('content-length');
+                    const sizeKB = contentLength ? (parseInt(contentLength) / 1024).toFixed(2) : 'desconhecido';
+                    testDiv.className = 'test-result success';
+                    testDiv.textContent = `✅ ${romFile} - ${sizeKB} KB - Status: ${response.status}`;
+                } else {
+                    testDiv.className = 'test-result error';
+                    testDiv.textContent = `❌ ${romFile} - HTTP ${response.status}`;
+                }
+            } catch (error) {
+                testDiv.className = 'test-result error';
+                testDiv.textContent = `❌ ${romFile} - Erro: ${error.message}`;
+            }
+        }
+
+        async function testSNESRoms() {
+            const resultsDiv = document.getElementById('results');
+            resultsDiv.innerHTML = '<h2>🧪 Testando ROMs SNES...</h2>';
+            
+            let successCount = 0;
+            let errorCount = 0;
+
+            for (const rom of snesRoms) {
+                await testRom(rom);
+                // Pequeno delay para não sobrecarregar
+                await new Promise(resolve => setTimeout(resolve, 100));
+            }
+
+            // Conta resultados
+            const successes = document.querySelectorAll('.success').length;
+            const errors = document.querySelectorAll('.error').length;
+
+            const summaryDiv = document.createElement('div');
+            summaryDiv.style.cssText = 'background: #334155; padding: 15px; margin: 20px 0; border-radius: 8px;';
+            summaryDiv.innerHTML = `
+                <h2>📊 Resumo do Teste</h2>
+                <p>✅ ROMs acessíveis: ${successes}</p>
+                <p>❌ ROMs com erro: ${errors}</p>
+                <p>📦 Total testado: ${snesRoms.length}</p>
+            `;
+            
+            resultsDiv.insertBefore(summaryDiv, resultsDiv.firstChild);
+        }
+
+        function clearResults() {
+            document.getElementById('results').innerHTML = '';
+        }
+    </script>
+</body>
+</html>

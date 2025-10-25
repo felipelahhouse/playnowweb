@@ -1,17 +1,42 @@
 import { StrictMode } from 'react';
 import { createRoot } from 'react-dom/client';
+import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import App from './App.tsx';
 import './index.css';
 import { initVersionCheck } from './lib/version';
 import { initializeGames } from './lib/gameStorage';
 
+// 🎮 Páginas do Multiplayer
+import LobbyPage from './pages/LobbyPage';
+import HostPage from './pages/HostPage';
+import PlayerPage from './pages/PlayerPage';
+
 // 🎮 Sincronização automática de jogos do Firebase Storage
 initializeGames().catch(console.error);
 
+// Verificar se é rota de multiplayer
+const isMultiplayerRoute = 
+  window.location.pathname.startsWith('/lobby') ||
+  window.location.pathname.startsWith('/host') ||
+  window.location.pathname.startsWith('/play/');
+
 createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <App />
-  </StrictMode>
+  isMultiplayerRoute ? (
+    // 🎮 Rotas do Multiplayer (SEM StrictMode - evita renderização dupla)
+    <BrowserRouter>
+      <Routes>
+        <Route path="/lobby" element={<LobbyPage />} />
+        <Route path="/host" element={<HostPage />} />
+        <Route path="/play/:sessionId" element={<PlayerPage />} />
+        <Route path="*" element={<Navigate to="/lobby" replace />} />
+      </Routes>
+    </BrowserRouter>
+  ) : (
+    // 🏠 App principal (com StrictMode para debug)
+    <StrictMode>
+      <App />
+    </StrictMode>
+  )
 );
 
 // 🔄 Inicializa verificação de versão (SEM auto-refresh)

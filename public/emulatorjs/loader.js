@@ -184,28 +184,35 @@
         }
     }
 
-    window.EJS_emulator = new EmulatorJS(EJS_player, config);
-    window.EJS_adBlocked = (url, del) => window.EJS_emulator.adBlocked(url, del);
-    if (typeof window.EJS_ready === "function") {
-        window.EJS_emulator.on("ready", window.EJS_ready);
-    }
-    if (typeof window.EJS_onGameStart === "function") {
-        window.EJS_emulator.on("start", window.EJS_onGameStart);
-    }
-    if (typeof window.EJS_onLoadState === "function") {
-        window.EJS_emulator.on("loadState", window.EJS_onLoadState);
-    }
-    if (typeof window.EJS_onSaveState === "function") {
-        window.EJS_emulator.on("saveState", window.EJS_onSaveState);
-    }
-    if (typeof window.EJS_onLoadSave === "function") {
-        window.EJS_emulator.on("loadSave", window.EJS_onLoadSave);
-    }
-    if (typeof window.EJS_onSaveSave === "function") {
-        window.EJS_emulator.on("saveSave", window.EJS_onSaveSave);
-    }
-    if (typeof window.EJS_onSaveUpdate === "function") {
-        window.EJS_emulator.on("saveUpdate", window.EJS_onSaveUpdate);
-        window.EJS_emulator.enableSaveUpdateEvent();
+    try {
+        window.EJS_emulator = new EmulatorJS(EJS_player, config);
+        window.EJS_adBlocked = (url, del) => window.EJS_emulator.adBlocked(url, del);
+        if (typeof window.EJS_ready === "function") {
+            window.EJS_emulator.on("ready", window.EJS_ready);
+        }
+        if (typeof window.EJS_onGameStart === "function") {
+            window.EJS_emulator.on("start", window.EJS_onGameStart);
+        }
+        if (typeof window.EJS_onLoadState === "function") {
+            window.EJS_emulator.on("loadState", window.EJS_onLoadState);
+        }
+        if (typeof window.EJS_onSaveState === "function") {
+            window.EJS_emulator.on("saveState", window.EJS_onSaveState);
+        }
+        if (typeof window.EJS_onLoadSave === "function") {
+            window.EJS_emulator.on("loadSave", window.EJS_onLoadSave);
+        }
+        if (typeof window.EJS_onSaveSave === "function") {
+            window.EJS_emulator.on("saveSave", window.EJS_onSaveSave);
+        }
+        if (typeof window.EJS_onSaveUpdate === "function") {
+            window.EJS_emulator.on("saveUpdate", window.EJS_onSaveUpdate);
+            window.EJS_emulator.enableSaveUpdateEvent();
+        }
+        console.log('[LOADER] ✅ EmulatorJS initialized successfully');
+    } catch (error) {
+        console.error('[LOADER] ❌ Error initializing EmulatorJS:', error);
+        // Ainda vai tentar com dados padrão
+        window.EJS_emulator = null;
     }
 })();

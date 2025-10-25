@@ -41,6 +41,14 @@ service cloud.firestore {
       allow write: if request.auth != null;
     }
     
+    // 🎮 MULTIPLAYER SESSIONS - Sessões PeerJS/WebRTC
+    match /multiplayer_sessions/{sessionId} {
+      allow read: if true;
+      allow create: if request.auth != null;
+      allow update: if true; // Permitir update para hostPeerId, players, etc
+      allow delete: if request.auth != null;
+    }
+    
     // Frames de streams (permite leitura/escrita para melhor performance)
     match /live_stream_frames/{frameId} {
       allow read: if true;

@@ -1,0 +1,74 @@
+╔══════════════════════════════════════════════════════════════════╗
+║                  🚀 DEPLOY COLYSEUS - RÁPIDO                      ║
+║                     APENAS 5 CLIQUES!                              ║
+╚══════════════════════════════════════════════════════════════════╝
+
+
+✅ PASSO 1: Abra este URL
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+https://dashboard.colyseus.dev
+
+[ ] Clique no link acima
+[ ] Faça login com Google (se pedido)
+
+
+✅ PASSO 2: Vá para seu Projeto
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[ ] Clique em "PlayNowEmulator" (seu projeto)
+[ ] Vá para aba "Deployments"
+
+
+✅ PASSO 3: Clique o Botão Vermelho
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[ ] Procure pelo botão: "REBOOT INSTANCE"
+[ ] Clique nele (é vermelho!)
+[ ] Vai aparecer: "Rebooting..."
+
+
+✅ PASSO 4: Aguarde
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[ ] Aguarde 2-3 minutos
+[ ] Status deve mudar para: ✅ Running
+[ ] Recarregue a página se necessário
+
+
+✅ PASSO 5: Teste
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+Abra este URL no browser:
+
+https://us-mia-84dbc265.colyseus.cloud/health
+
+[ ] Se aparecer: {"status":"ok",...}  →  ✅ SUCESSO!
+[ ] Se aparecer: "Service Unavailable" → Aguarde mais 1 min
+
+
+✅ PASSO 6: Teste no App
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+[ ] Abra: https://playnowemulator.web.app
+[ ] Vá para: Multiplayer
+[ ] Tente: Criar Sala
+[ ] Se funcionar: ✅ TUDO OK!
+
+
+╔══════════════════════════════════════════════════════════════════╗
+║                        🎉 PRONTO!                                ║
+║                                                                   ║
+║  Se tudo funcionar, seu Colyseus está ONLINE e pronto para       ║
+║  receber jogadores!                                              ║
+║                                                                   ║
+║  Documentação completa em: PASSO_A_PASSO_DEPLOY.md              ║
+╚══════════════════════════════════════════════════════════════════╝
+
+
+TEMPO ESTIMADO: 10-15 minutos
+
+Se tiver dúvida, leia:
+📄 PASSO_A_PASSO_DEPLOY.md - Guia completo
+📄 DEPLOY_COLYSEUS_AGORA.md - Instruções detalhadas
+📄 CORRECAO_COLYSEUS_RESUMO.md - Resumo técnico

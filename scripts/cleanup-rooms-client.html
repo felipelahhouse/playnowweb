@@ -1,0 +1,172 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>🧹 Limpar Salas Multiplayer</title>
+  <style>
+    body {
+      font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+      background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+      color: white;
+      padding: 40px;
+      margin: 0;
+    }
+    .container {
+      max-width: 800px;
+      margin: 0 auto;
+      background: rgba(0, 0, 0, 0.3);
+      padding: 30px;
+      border-radius: 15px;
+      backdrop-filter: blur(10px);
+    }
+    h1 { margin-top: 0; }
+    .room-card {
+      background: rgba(255, 255, 255, 0.1);
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 8px;
+      border-left: 4px solid #4CAF50;
+    }
+    .room-id { font-size: 0.9em; opacity: 0.7; }
+    button {
+      background: #f44336;
+      color: white;
+      border: none;
+      padding: 15px 30px;
+      font-size: 1.1em;
+      border-radius: 8px;
+      cursor: pointer;
+      margin: 20px 0;
+      transition: all 0.3s;
+    }
+    button:hover {
+      background: #d32f2f;
+      transform: scale(1.05);
+    }
+    button:disabled {
+      background: #ccc;
+      cursor: not-allowed;
+      transform: scale(1);
+    }
+    .success { color: #4CAF50; font-weight: bold; }
+    .loading { 
+      display: inline-block;
+      animation: spin 1s linear infinite;
+    }
+    @keyframes spin {
+      0% { transform: rotate(0deg); }
+      100% { transform: rotate(360deg); }
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <h1>🧹 Limpar Salas Multiplayer</h1>
+    <div id="status">Carregando...</div>
+    <div id="rooms"></div>
+    <button id="deleteBtn" onclick="deleteAllRooms()" style="display: none;">
+      🗑️ Deletar TODAS as Salas
+    </button>
+  </div>
+
+  <script type="module">
+    import { initializeApp } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-app.js';
+    import { getFirestore, collection, getDocs, deleteDoc, doc } from 'https://www.gstatic.com/firebasejs/10.7.1/firebase-firestore.js';
+
+    // Configuração do Firebase (mesma do projeto)
+    const firebaseConfig = {
+      apiKey: "AIzaSyA3z82W8MmqNHV71zk35-xDhk0okyGU7u8",
+      authDomain: "playnowemulator.firebaseapp.com",
+      projectId: "playnowemulator",
+      storageBucket: "playnowemulator.firebasestorage.app",
+      messagingSenderId: "1080720831686",
+      appId: "1:1080720831686:web:87ed1ebc1d07aa28f3afd9"
+    };
+
+    const app = initializeApp(firebaseConfig);
+    const db = getFirestore(app);
+
+    let roomsData = [];
+
+    async function loadRooms() {
+      try {
+        console.log('🔍 Buscando salas...');
+        const snapshot = await getDocs(collection(db, 'multiplayer_sessions'));
+        
+        const statusDiv = document.getElementById('status');
+        const roomsDiv = document.getElementById('rooms');
+        const deleteBtn = document.getElementById('deleteBtn');
+
+        if (snapshot.empty) {
+          statusDiv.innerHTML = '✅ Nenhuma sala encontrada! Tudo limpo.';
+          return;
+        }
+
+        statusDiv.innerHTML = `📊 Total de salas: <strong>${snapshot.size}</strong>`;
+        roomsData = [];
+
+        snapshot.forEach(docSnap => {
+          const data = docSnap.data();
+          roomsData.push({
+            id: docSnap.id,
+            ref: docSnap.ref,
+            data: data
+          });
+
+          const card = document.createElement('div');
+          card.className = 'room-card';
+          card.innerHTML = `
+            <strong>${data.sessionName || 'Sala sem nome'}</strong><br>
+            <span class="room-id">ID: ${docSnap.id}</span><br>
+            Host: ${data.hostUsername || data.hostUserId || 'N/A'}<br>
+            Players: ${data.currentPlayers || 0}/${data.maxPlayers || 4}<br>
+            Jogo: ${data.gameTitle || 'N/A'}
+          `;
+          roomsDiv.appendChild(card);
+        });
+
+        deleteBtn.style.display = 'block';
+
+      } catch (error) {
+        console.error('❌ Erro:', error);
+        document.getElementById('status').innerHTML = `❌ Erro: ${error.message}`;
+      }
+    }
+
+    window.deleteAllRooms = async function() {
+      const deleteBtn = document.getElementById('deleteBtn');
+      const statusDiv = document.getElementById('status');
+
+      if (!confirm(`⚠️ Tem certeza que deseja deletar TODAS as ${roomsData.length} salas?`)) {
+        return;
+      }
+
+      deleteBtn.disabled = true;
+      deleteBtn.innerHTML = '<span class="loading">⏳</span> Deletando...';
+
+      try {
+        let deleted = 0;
+        for (const room of roomsData) {
+          await deleteDoc(room.ref);
+          deleted++;
+          statusDiv.innerHTML = `🗑️ Deletando... ${deleted}/${roomsData.length}`;
+        }
+
+        statusDiv.innerHTML = `<span class="success">✅ ${deleted} salas deletadas com sucesso!</span>`;
+        document.getElementById('rooms').innerHTML = '';
+        deleteBtn.style.display = 'none';
+
+      } catch (error) {
+        console.error('❌ Erro ao deletar:', error);
+        statusDiv.innerHTML = `❌ Erro: ${error.message}`;
+        deleteBtn.disabled = false;
+        deleteBtn.innerHTML = '🗑️ Deletar TODAS as Salas';
+      }
+    };
+
+    // Carregar ao iniciar
+    loadRooms();
+  </script>
+</body>
+</html>

@@ -1,0 +1,389 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🔍 Teste de Carregamento de ROMs</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            background: linear-gradient(135deg, #0f172a 0%, #1a1a2e 100%);
+            color: #e0e0e0;
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 900px;
+            margin: 0 auto;
+        }
+        
+        h1 {
+            text-align: center;
+            margin-bottom: 30px;
+            color: #00d4ff;
+            text-shadow: 0 0 10px rgba(0, 212, 255, 0.5);
+        }
+        
+        .card {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 8px;
+            padding: 20px;
+            margin-bottom: 20px;
+            backdrop-filter: blur(10px);
+        }
+        
+        .section {
+            margin-bottom: 20px;
+        }
+        
+        .section h2 {
+            color: #00d4ff;
+            margin-bottom: 15px;
+            font-size: 18px;
+        }
+        
+        .test-item {
+            background: rgba(0, 0, 0, 0.3);
+            padding: 15px;
+            margin-bottom: 10px;
+            border-radius: 5px;
+            display: flex;
+            align-items: center;
+            gap: 15px;
+        }
+        
+        .status {
+            min-width: 80px;
+            padding: 5px 10px;
+            border-radius: 3px;
+            font-weight: bold;
+            text-align: center;
+        }
+        
+        .status.pending {
+            background: rgba(255, 193, 7, 0.3);
+            color: #ffc107;
+        }
+        
+        .status.success {
+            background: rgba(76, 175, 80, 0.3);
+            color: #4caf50;
+        }
+        
+        .status.error {
+            background: rgba(244, 67, 54, 0.3);
+            color: #f44336;
+        }
+        
+        .status.loading {
+            background: rgba(33, 150, 243, 0.3);
+            color: #2196f3;
+        }
+        
+        .spinner {
+            display: inline-block;
+            width: 14px;
+            height: 14px;
+            border: 2px solid rgba(33, 150, 243, 0.3);
+            border-top-color: #2196f3;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        .file-list {
+            background: rgba(0, 0, 0, 0.4);
+            border: 1px solid rgba(0, 212, 255, 0.2);
+            border-radius: 5px;
+            padding: 15px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .file-item {
+            padding: 8px;
+            margin-bottom: 5px;
+            background: rgba(0, 212, 255, 0.1);
+            border-left: 3px solid #00d4ff;
+            border-radius: 3px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+        }
+        
+        .file-item.error {
+            background: rgba(244, 67, 54, 0.1);
+            border-left-color: #f44336;
+        }
+        
+        .button {
+            background: linear-gradient(135deg, #00d4ff 0%, #0099cc 100%);
+            color: #000;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-weight: bold;
+            margin-right: 10px;
+            margin-bottom: 10px;
+            transition: transform 0.2s, box-shadow 0.2s;
+        }
+        
+        .button:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 212, 255, 0.3);
+        }
+        
+        .button:active {
+            transform: translateY(0);
+        }
+        
+        .console {
+            background: rgba(0, 0, 0, 0.6);
+            border: 1px solid rgba(0, 212, 255, 0.3);
+            border-radius: 5px;
+            padding: 15px;
+            font-family: 'Courier New', monospace;
+            font-size: 12px;
+            max-height: 300px;
+            overflow-y: auto;
+            color: #00d4ff;
+            line-height: 1.6;
+        }
+        
+        .log-entry {
+            padding: 3px 0;
+        }
+        
+        .log-entry.error {
+            color: #ff6b6b;
+        }
+        
+        .log-entry.success {
+            color: #51cf66;
+        }
+        
+        .log-entry.warning {
+            color: #ffd43b;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 Teste de Carregamento de ROMs</h1>
+        
+        <div class="card">
+            <div class="section">
+                <h2>📋 Testes Disponíveis</h2>
+                <button class="button" onclick="testRomPaths()">
+                    🧪 Testar Caminhos de ROM
+                </button>
+                <button class="button" onclick="listRoms()">
+                    📂 Listar ROMs Disponíveis
+                </button>
+                <button class="button" onclick="clearConsole()">
+                    🗑️ Limpar Console
+                </button>
+                <button class="button" onclick="testMultiplayer()">
+                    🎮 Testar URL Multiplayer
+                </button>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="section">
+                <h2>🔗 Testes de Conectividade</h2>
+                <div id="connectivity-tests"></div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="section">
+                <h2>📂 ROMs Encontradas</h2>
+                <div class="file-list" id="rom-list">
+                    <div class="test-item">
+                        <span class="status loading"><span class="spinner"></span></span>
+                        <span>Aguardando teste...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="card">
+            <div class="section">
+                <h2>📊 Console de Debug</h2>
+                <div class="console" id="debug-console">
+                    <div class="log-entry">🟢 Console iniciado...</div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const debugLog = (message, type = 'info') => {
+            const console_elem = document.getElementById('debug-console');
+            const entry = document.createElement('div');
+            entry.className = `log-entry ${type}`;
+            
+            let icon = '📋';
+            if (type === 'error') icon = '❌';
+            else if (type === 'success') icon = '✅';
+            else if (type === 'warning') icon = '⚠️';
+            
+            entry.textContent = `${icon} ${message}`;
+            console_elem.appendChild(entry);
+            console_elem.scrollTop = console_elem.scrollHeight;
+        };
+        
+        const clearConsole = () => {
+            document.getElementById('debug-console').innerHTML = '<div class="log-entry">🟢 Console limpo</div>';
+        };
+        
+        const testRomPaths = async () => {
+            debugLog('Iniciando testes de ROM...', 'info');
+            
+            const testPaths = [
+                '/roms/',
+                'roms/',
+                '/public/roms/',
+                './roms/',
+            ];
+            
+            const connectivity = document.getElementById('connectivity-tests');
+            connectivity.innerHTML = '';
+            
+            for (const path of testPaths) {
+                const item = document.createElement('div');
+                item.className = 'test-item';
+                item.innerHTML = `
+                    <span class="status loading"><span class="spinner"></span></span>
+                    <span>Testando: <code>${path}</code></span>
+                `;
+                connectivity.appendChild(item);
+                
+                try {
+                    const response = await fetch(path, { method: 'HEAD' });
+                    const status = response.ok ? 'success' : 'error';
+                    const statusText = response.ok ? '✅ OK' : `❌ ${response.status}`;
+                    
+                    item.innerHTML = `
+                        <span class="status ${status}">${statusText}</span>
+                        <span>${path}</span>
+                    `;
+                    
+                    debugLog(`${path} - Status: ${response.status}`, response.ok ? 'success' : 'error');
+                } catch (e) {
+                    item.innerHTML = `
+                        <span class="status error">❌ Erro</span>
+                        <span>${path}</span>
+                    `;
+                    debugLog(`${path} - Erro: ${e.message}`, 'error');
+                }
+            }
+        };
+        
+        const listRoms = async () => {
+            debugLog('Listando ROMs disponíveis...', 'info');
+            
+            try {
+                // Tenta buscar um index JSON de ROMs (se existir)
+                const response = await fetch('/roms/index.json').catch(() => null);
+                
+                if (response && response.ok) {
+                    const roms = await response.json();
+                    displayRoms(roms);
+                    debugLog(`✅ ${roms.length} ROMs encontradas!`, 'success');
+                } else {
+                    debugLog('Arquivo index.json não encontrado, tentando acesso direto...', 'warning');
+                    
+                    // Fallback: tenta alguns caminhos conhecidos
+                    const knownRoms = [
+                        'roms/super_metroid.sfc',
+                        'roms/snes_game.smc',
+                        'roms/game.zip',
+                    ];
+                    
+                    let found = [];
+                    for (const rom of knownRoms) {
+                        try {
+                            const res = await fetch(`/${rom}`, { method: 'HEAD' });
+                            if (res.ok) {
+                                found.push(rom);
+                                debugLog(`Encontrado: ${rom}`, 'success');
+                            }
+                        } catch (e) {
+                            // Ignora
+                        }
+                    }
+                    
+                    if (found.length === 0) {
+                        debugLog('Nenhuma ROM encontrada nos caminhos conhecidos', 'warning');
+                    }
+                    
+                    displayRoms(found);
+                }
+            } catch (e) {
+                debugLog(`Erro ao listar ROMs: ${e.message}`, 'error');
+            }
+        };
+        
+        const displayRoms = (roms) => {
+            const romList = document.getElementById('rom-list');
+            
+            if (!roms || roms.length === 0) {
+                romList.innerHTML = '<div class="file-item error">Nenhuma ROM encontrada</div>';
+                return;
+            }
+            
+            romList.innerHTML = '';
+            
+            (Array.isArray(roms) ? roms : Object.keys(roms)).forEach(rom => {
+                const item = document.createElement('div');
+                item.className = 'file-item';
+                
+                const romName = typeof rom === 'string' ? rom : rom.name || rom;
+                const romSize = rom.size ? ` (${Math.round(rom.size / 1024)}KB)` : '';
+                
+                item.textContent = `📦 ${romName}${romSize}`;
+                romList.appendChild(item);
+            });
+        };
+        
+        const testMultiplayer = async () => {
+            debugLog('Testando URL Multiplayer...', 'info');
+            
+            const sessionId = 'test-' + Date.now();
+            const testUrl = new URL('/universal-player.html', window.location.origin);
+            testUrl.searchParams.set('rom', '/roms/test.sfc');
+            testUrl.searchParams.set('title', 'Teste');
+            testUrl.searchParams.set('platform', 'snes');
+            testUrl.searchParams.set('sessionId', sessionId);
+            testUrl.searchParams.set('socketUrl', 'http://localhost:3000');
+            
+            debugLog('URL de Teste: ' + testUrl.toString(), 'info');
+            
+            try {
+                const response = await fetch(testUrl.pathname, { method: 'HEAD' });
+                debugLog(`universal-player.html - Status: ${response.status}`, 'success');
+            } catch (e) {
+                debugLog(`Erro ao testar URL: ${e.message}`, 'error');
+            }
+        };
+        
+        // Teste inicial quando carrega
+        window.addEventListener('load', () => {
+            debugLog('Página carregada. Clique em um botão para testar.', 'success');
+        });
+    </script>
+</body>
+</html>

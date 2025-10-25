@@ -9,14 +9,13 @@ declare global {
   }
 }
 
-import React, { useEffect, useRef, useState } from 'react';
-import { X, Users, Copy, Check, Crown, Wifi, WifiOff, Loader2 } from 'lucide-react';
+import React, { useEffect, useRef, useState, useCallback } from 'react';
+import { X, Users, Copy, Check, Crown, Wifi, Loader2 } from 'lucide-react';
 import { useAuth } from '../../contexts/AuthContext';
-import { doc, onSnapshot, collection, query, where, deleteDoc } from 'firebase/firestore';
+import { doc, onSnapshot, collection, query, where, deleteDoc, updateDoc, getDocs } from 'firebase/firestore';
 import { db, storage } from '../../lib/firebase';
 import { ref as storageRef, getDownloadURL } from 'firebase/storage';
-// @ts-expect-error - JavaScript module with types in .d.ts file
-import multiplayerService from '../../services/multiplayerService';
+import { usePeerJSHost } from '../../hooks/usePeerJSHost';
 
 interface MultiplayerHostViewProps {
   sessionId: string;
@@ -42,35 +41,86 @@ const MultiplayerHostView: React.FC<MultiplayerHostViewProps> = ({
   platform,
   onClose
 }) => {
-  console.log('🟢🟢🟢 [MULTIPLAYER HOST VIEW] COMPONENTE INICIADO 🟢🟢🟢');
-  console.log('[HOST VIEW] Props recebidas:', {
-    sessionId,
-    gameId,
-    romPath,
-    gameTitle,
-    platform
-  });
-  
   const { user } = useAuth();
   
-  console.log('[HOST VIEW] Usuário logado:', user);
-  
   const iframeRef = useRef<HTMLIFrameElement>(null);
-  const hostRef = useRef<any>(null);
   const canvasRef = useRef<HTMLCanvasElement | null>(null);
-  const socketRef = useRef<any>(null);
-  const lastFrameRef = useRef<string | null>(null);
+  const initLoggedRef = useRef(false); // ✅ Evita logs duplicados no StrictMode
   
   const [players, setPlayers] = useState<Player[]>([]);
   const [status, setStatus] = useState<'loading' | 'starting' | 'ready' | 'error'>('loading');
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState(false);
   const [processedRomUrl, setProcessedRomUrl] = useState<string | null>(null);
-  const [sidebarOpen, setSidebarOpen] = useState(true); // ✅ NOVO: Estado para controlar sidebar
-  const [fullscreen, setFullscreen] = useState(false); // ✅ NOVO: Estado para tela cheia
+  const [sidebarOpen, setSidebarOpen] = useState(true);
+  const [fullscreen, setFullscreen] = useState(false);
+  const [emulatorLoaded, setEmulatorLoaded] = useState(false);
+  const [canvasFound, setCanvasFound] = useState(false);
+
+  // ✅ Log inicial em useEffect (uma vez)
+  useEffect(() => {
+    if (!initLoggedRef.current) {
+      initLoggedRef.current = true;
+      console.log('🟢 [MULTIPLAYER HOST VIEW] Iniciado', { sessionId, gameTitle, platform });
+    }
+  }, []);
 
   // URL para compartilhar
   const shareUrl = `${window.location.origin}/?join=${sessionId}`;
+
+  // 🎮 PeerJS Hook - HOST streaming
+  const { 
+    peerId, 
+    isReady: peerReady, 
+    connectedPlayers, 
+    startStreaming,
+    isStreaming 
+  } = usePeerJSHost({
+    sessionId,
+    userId: user?.id || 'anonymous',
+    onPlayerJoined: (playerId) => {
+      console.log('🎉 [HOST] Novo player conectado:', playerId);
+    },
+    onPlayerLeft: (playerId) => {
+      console.log('👋 [HOST] Player desconectou:', playerId);
+    },
+    onInputReceived: (playerId, input) => {
+      console.log('🎮 [HOST] Input recebido do player:', playerId, input);
+      injectInputToEmulator(input);
+    }
+  });
+
+  // 💉 Injetar input no EmulatorJS
+  const injectInputToEmulator = useCallback((input: { type: string; code: string; timestamp: number }) => {
+    if (!iframeRef.current?.contentWindow) {
+      console.warn('⚠️ [HOST] Iframe não disponível para injetar input');
+      return;
+    }
+
+    console.log('💉 [HOST] Injetando input no emulador:', input);
+    
+    // Envia input para o EmulatorJS via postMessage
+    iframeRef.current.contentWindow.postMessage({
+      type: 'inject-input',
+      input: input
+    }, '*');
+  }, []);
+
+  // 📡 Atualiza Firestore com PeerJS ID quando estiver pronto
+  useEffect(() => {
+    if (peerId && peerReady) {
+      console.log('📡 [HOST] Atualizando Firestore com PeerJS ID:', peerId);
+      const sessionRef = doc(db, 'multiplayer_sessions', sessionId);
+      updateDoc(sessionRef, {
+        hostPeerId: peerId,
+        peerServerReady: true
+      }).then(() => {
+        console.log('✅ [HOST] Firestore atualizado com PeerJS ID');
+      }).catch((error) => {
+        console.error('❌ [HOST] Erro ao atualizar Firestore:', error);
+      });
+    }
+  }, [peerId, peerReady, sessionId]);
 
   // Processa a ROM URL (converte Firebase Storage path para download URL)
   useEffect(() => {
@@ -78,11 +128,25 @@ const MultiplayerHostView: React.FC<MultiplayerHostViewProps> = ({
       try {
         console.log('[HOST VIEW] 📦 Processando ROM URL:', romPath);
         
-        // Se já é uma URL HTTP, usa diretamente
+        // Se já é uma URL HTTP, valida e usa diretamente
         if (romPath.startsWith('http://') || romPath.startsWith('https://') || romPath.startsWith('blob:')) {
           console.log('[HOST VIEW] ✅ URL direta detectada');
+          
+          // Valida se a URL é acessível
+          if (romPath.startsWith('http')) {
+            try {
+              const response = await fetch(romPath, { method: 'HEAD' });
+              if (!response.ok) {
+                console.warn('[HOST VIEW] ⚠️ ROM URL retorna status:', response.status);
+              }
+            } catch (e) {
+              console.warn('[HOST VIEW] ⚠️ Não foi possível validar ROM URL:', e);
+            }
+          }
+          
           setProcessedRomUrl(romPath);
           setStatus('ready');
+          setEmulatorLoaded(true);
           return;
         }
         
@@ -91,8 +155,18 @@ const MultiplayerHostView: React.FC<MultiplayerHostViewProps> = ({
           const publicPath = `/${romPath}`;
           console.log('[HOST VIEW] 🔄 Convertendo Firestore path para público:', publicPath);
           console.log('[HOST VIEW] ✅ Caminho correto:', publicPath);
+          
+          // Valida se o arquivo existe
+          try {
+            const response = await fetch(publicPath, { method: 'HEAD' });
+            console.log('[HOST VIEW] 📦 ROM acessível (Status: ' + response.status + ')');
+          } catch (e) {
+            console.warn('[HOST VIEW] ⚠️ Aviso ao validar ROM:', e);
+          }
+          
           setProcessedRomUrl(publicPath);
           setStatus('ready');
+          setEmulatorLoaded(true);
           return;
         }
         
@@ -105,6 +179,7 @@ const MultiplayerHostView: React.FC<MultiplayerHostViewProps> = ({
           console.log('[HOST VIEW] ✅ URL de download obtida');
           setProcessedRomUrl(downloadUrl);
           setStatus('ready');
+          setEmulatorLoaded(true);
           return;
         }
         
@@ -112,9 +187,12 @@ const MultiplayerHostView: React.FC<MultiplayerHostViewProps> = ({
         console.log('[HOST VIEW] ⚠️ Usando caminho como URL relativa');
         setProcessedRomUrl(romPath);
         setStatus('ready');
+        setEmulatorLoaded(true);
       } catch (err) {
         console.error('[HOST VIEW] ❌ Erro ao processar ROM URL:', err);
-        setError(`Erro ao carregar ROM: ${err instanceof Error ? err.message : 'Erro desconhecido'}`);
+        const errorMsg = err instanceof Error ? err.message : 'Erro desconhecido';
+        console.error('[HOST VIEW] Erro completo:', errorMsg);
+        setError(`Erro ao carregar ROM: ${errorMsg}`);
         setStatus('error');
       }
     };
@@ -122,13 +200,15 @@ const MultiplayerHostView: React.FC<MultiplayerHostViewProps> = ({
     processRomUrl();
   }, [romPath]);
 
-  // Escuta mudanças nos players
+  // 👥 Escuta mudanças nos players + AUTO-CLEANUP quando sala vazia
   useEffect(() => {
     const playersQuery = query(
-      collection(db, 'game_sessions', sessionId, 'players')
+      collection(db, 'multiplayer_sessions', sessionId, 'players')
     );
 
-    const unsubscribe = onSnapshot(playersQuery, (snapshot) => {
+    let emptyRoomTimeout: NodeJS.Timeout | null = null;
+
+    const unsubscribe = onSnapshot(playersQuery, async (snapshot) => {
       const playersList: Player[] = [];
       snapshot.forEach((doc) => {
         const data = doc.data();
@@ -143,25 +223,66 @@ const MultiplayerHostView: React.FC<MultiplayerHostViewProps> = ({
       // Ordenar por playerNumber
       playersList.sort((a, b) => a.playerNumber - b.playerNumber);
       setPlayers(playersList);
+
+      // Limpar timeout anterior
+      if (emptyRoomTimeout) {
+        clearTimeout(emptyRoomTimeout);
+        emptyRoomTimeout = null;
+      }
+
+      // 🗑️ AUTO-CLEANUP: Se sala ficou COMPLETAMENTE vazia (sem nenhum player)
+      if (playersList.length === 0) {
+        console.warn('[HOST VIEW] ⚠️ Sala sem nenhum player! Iniciando contagem regressiva...');
+        
+        // Aguarda 10 segundos para dar chance de alguém entrar
+        emptyRoomTimeout = setTimeout(async () => {
+          // Verifica novamente se ainda está vazia
+          const checkSnapshot = await getDocs(playersQuery);
+          if (checkSnapshot.empty) {
+            console.log('[HOST VIEW] 🗑️ Sala continua vazia após 10s, FECHANDO AUTOMATICAMENTE...');
+            try {
+              const sessionRef = doc(db, 'multiplayer_sessions', sessionId);
+              await deleteDoc(sessionRef);
+              console.log('[HOST VIEW] ✅ Sessão vazia deletada automaticamente');
+              alert('🚪 Sala fechada automaticamente (sem players por 10 segundos)');
+              onClose();
+            } catch (error) {
+              console.error('[HOST VIEW] ❌ Erro ao deletar sessão vazia:', error);
+            }
+          } else {
+            console.log('[HOST VIEW] ✅ Players entraram, sala continua ativa');
+          }
+        }, 10000); // 10 segundos
+      } else {
+        console.log(`[HOST VIEW] 👥 ${playersList.length} player(s) na sala`);
+      }
     });
 
-    return () => unsubscribe();
-  }, [sessionId]);
+    return () => {
+      unsubscribe();
+      if (emptyRoomTimeout) {
+        clearTimeout(emptyRoomTimeout);
+      }
+    };
+  }, [sessionId, onClose]);
 
-  // 🔥 CLEANUP: Deletar sessão quando aba fechar
+  // 🔥 CLEANUP: Deletar sessão quando HOST sair (beforeunload)
   useEffect(() => {
     const deleteSession = async () => {
       try {
-        console.log('[HOST VIEW] 🗑️ Deletando sessão do Firestore:', sessionId);
-        const sessionRef = doc(db, 'game_sessions', sessionId);
+        console.log('[HOST VIEW] 🗑️ HOST saindo - Deletando sessão:', sessionId);
+        
+        // Deletar da collection correta (multiplayer_sessions)
+        const sessionRef = doc(db, 'multiplayer_sessions', sessionId);
         await deleteDoc(sessionRef);
+        
         console.log('[HOST VIEW] ✅ Sessão deletada');
       } catch (error) {
         console.error('[HOST VIEW] ❌ Erro ao deletar sessão:', error);
       }
     };
 
-    // Deletar APENAS quando usuário fechar a aba/navegador
+    // Deletar APENAS quando usuário fechar a aba/navegador OU clicar em fechar
     const handleBeforeUnload = () => {
       deleteSession();
     };
@@ -174,306 +295,121 @@ const MultiplayerHostView: React.FC<MultiplayerHostViewProps> = ({
     };
   }, [sessionId]);
 
-  // 🎥 Capturar e transmitir frames do emulador via Socket.IO
-  const captureAndStreamFrame = React.useCallback((canvasDataUrl: string) => {
-    console.log('[HOST DEBUG] 🔍 captureAndStreamFrame CHAMADA!');
-    console.log('[HOST DEBUG] Socket conectado?', socketRef.current?.connected);
-    
-    try {
-      const frameSizeKB = Math.round(canvasDataUrl.length / 1024);
-      
-      // Limite de segurança - Socket.IO suporta até ~1MB por mensagem
-      if (frameSizeKB > 900) {
-        console.warn(`[HOST] ⚠️ Frame muito grande (${frameSizeKB}KB), pulando...`);
-        return;
-      }
-      
-      // ✅ VERIFICAR SE SOCKET ESTÁ CONECTADO
-      if (socketRef.current && socketRef.current.connected) {
-        console.log('[HOST DEBUG] ✅ Enviando frame via Socket.IO...');
-        socketRef.current.emit('stream-frame', {
-          frame: canvasDataUrl,
-          timestamp: Date.now(),
-          frameNumber: window.frameLogCount || 0,
-          sizeKB: frameSizeKB
-        });
-        
-        // Log apenas nos primeiros 10 frames ou a cada 50
-        if (!window.frameLogCount) window.frameLogCount = 0;
-        window.frameLogCount++;
-        
-        if (window.frameLogCount <= 10 || window.frameLogCount % 50 === 0) {
-          console.log(`[HOST] ✅ Frame #${window.frameLogCount} enviado via Socket.IO (${frameSizeKB}KB)`);
-        }
-      } else {
-        console.error('[HOST DEBUG] ❌ Socket.IO NÃO CONECTADO!');
-        console.error('[HOST DEBUG] socketRef.current:', socketRef.current);
-        console.error('[HOST DEBUG] connected:', socketRef.current?.connected);
-      }
-      
-    } catch (error) {
-      console.error('[HOST] ❌ Erro ao enviar frame:', error);
-    }
-  }, []);
-
-  // 🎯 Wrapper para sincronizar frames com novo player
-  const captureAndStreamFrameWithSync = React.useCallback((canvasDataUrl: string) => {
-    console.log('[HOST DEBUG] 🎯 captureAndStreamFrameWithSync CHAMADA!');
-    lastFrameRef.current = canvasDataUrl;
-    console.log('[HOST DEBUG] 💾 Frame salvo em lastFrameRef');
-    captureAndStreamFrame(canvasDataUrl);
-    console.log('[HOST DEBUG] ✅ captureAndStreamFrame acionada');
-  }, [captureAndStreamFrame]);
-
-  // 🔍 DEBUG: Listener global para todas as mensagens
+  // � Capturar canvas do EmulatorJS e iniciar streaming WebRTC
   useEffect(() => {
-    const debugListener = (event: MessageEvent) => {
-      console.log('[HOST VIEW DEBUG] 🌍 Mensagem recebida de qualquer origem:', {
-        origin: event.origin,
-        hasData: !!event.data,
-        dataType: event.data?.type,
-        dataKeys: event.data ? Object.keys(event.data) : [],
-        source: event.source === iframeRef.current?.contentWindow ? 'IFRAME' : 'OUTRO'
-      });
-    };
-    
-    window.addEventListener('message', debugListener);
-    console.log('[HOST VIEW DEBUG] 🔍 Debug listener GLOBAL ativado');
-    
-    return () => window.removeEventListener('message', debugListener);
-  }, []);
-
-  // Inicializa o emulador e captura frames para streaming
-  useEffect(() => {
-    console.log('[HOST VIEW] 🎧 Configurando listener de mensagens...');
-    
-    const handleMessage = (event: MessageEvent) => {
-      console.log('[HOST VIEW] 📬 handleMessage chamado!', {
-        hasData: !!event.data,
-        dataType: event.data?.type
-      });
-      
-      // Ignora mensagens que não são do emulador
-      if (!event.data || !event.data.type) {
-        console.log('[HOST VIEW] ⏭️ Mensagem ignorada (sem data ou type)');
-        return;
-      }
-      
-      // Log reduzido - só loga tipos importantes
-      if (event.data.type !== 'emulator-frame') {
-        console.log('[HOST VIEW] 📨 Mensagem recebida:', event.data.type);
-      }
-      
-      if (event.data.type === 'emulator-ready') {
-        console.log('[HOST VIEW] 🎮 Emulador pronto!');
-        // Emulador está pronto para jogar
-      } else if (event.data.type === 'emulator-error') {
-        console.error('[HOST VIEW] ❌ Erro do emulador:', event.data.message);
-        setError(event.data.message || 'Erro ao carregar emulador');
-        setStatus('error');
-      } else if (event.data.type === 'emulator-frame' && event.data.canvas) {
-        // Log SEMPRE nos primeiros 10 frames
-        if (event.data.frameNumber === 1) {
-          console.log('[FRAMEUPLOAD] 🎬 PRIMEIRO FRAME RECEBIDO DO IFRAME! Iniciando upload para Firestore...');
-          console.log('[FRAMEUPLOAD] Frame size:', event.data.sizeKB + 'KB');
-        } else if (event.data.frameNumber <= 10) {
-          console.log(`[FRAMEUPLOAD] 🎬 Frame #${event.data.frameNumber} recebido (${event.data.sizeKB}KB)`);
-        } else if (event.data.frameNumber % 50 === 0) {
-          console.log(`[FRAMEUPLOAD] 🎬 Frame #${event.data.frameNumber} recebido (${event.data.sizeKB}KB)`);
-        }
-        // Recebeu frame do emulador para streaming
-        console.log('[HOST] 📬 Frame recebido do emulador, enviando via Socket.IO...');
-        captureAndStreamFrameWithSync(event.data.canvas);
-      }
-    };
-
-    // Adiciona listener imediatamente, sem verificar iframeRef
-    window.addEventListener('message', handleMessage);
-    console.log('[HOST VIEW] ✅ Listener de mensagens ativo');
-
-    return () => {
-      console.log('[HOST VIEW] 🔌 Removendo listener de mensagens');
-      window.removeEventListener('message', handleMessage);
-    };
-  }, [captureAndStreamFrameWithSync]); // Atualizado para usar a função com sincronização
-
-  // 🎯 Socket.IO: Setup para sincronização em tempo real
-  useEffect(() => {
-    if (!user?.id || !user?.username) {
-      console.log('[HOST VIEW SOCKET] ⚠️ Aguardando autenticação...');
+    if (!peerReady || !iframeRef.current) {
+      console.log('[HOST] ⏳ Aguardando PeerJS e iframe...');
       return;
     }
 
-    let isMounted = true;
-    let socket = socketRef.current;
+    console.log('[HOST] 🎬 Tentando capturar canvas do EmulatorJS...');
 
-    const setupSocketConnection = async () => {
+    let captureAttempts = 0;
+    const maxCaptureAttempts = 30; // 30 tentativas = ~60 segundos com delay aumentado
+    let captureTimeout: NodeJS.Timeout | null = null;
+
+    const attemptCapture = () => {
+      captureAttempts++;
       try {
-        console.log('[HOST VIEW SOCKET] 🔌 Conectando ao Socket.IO...');
-        
-        // Conectar ao servidor Socket.IO
-        socket = multiplayerService.connect();
-        if (!socket) {
-          throw new Error('Socket não inicializado');
+        const iframeDoc = iframeRef.current?.contentDocument || iframeRef.current?.contentWindow?.document;
+        if (!iframeDoc) {
+          if (captureAttempts < maxCaptureAttempts) {
+            console.warn(`[HOST] ⚠️ Não foi possível acessar documento do iframe (tentativa ${captureAttempts}/${maxCaptureAttempts})`);
+            captureTimeout = setTimeout(attemptCapture, 2000);
+          } else {
+            console.error('[HOST] ❌ Falha permanente ao acessar iframe');
+            setError('Não foi possível acessar o emulador');
+          }
+          return;
         }
 
-        socketRef.current = socket;
+        // Procura pelo canvas do EmulatorJS dentro do container #game
+        const gameContainer = iframeDoc.getElementById('game');
+        if (!gameContainer) {
+          if (captureAttempts < maxCaptureAttempts) {
+            if (captureAttempts % 5 === 0) {
+              console.warn(`[HOST] ⚠️ Container #game não encontrado (tentativa ${captureAttempts}/${maxCaptureAttempts})`);
+            }
+            captureTimeout = setTimeout(attemptCapture, 2000);
+          }
+          return;
+        }
 
-        // Aguardar conexão
-        await new Promise<void>((resolve, reject) => {
-          const timeout = setTimeout(() => reject(new Error('Connection timeout')), 10000);
-          
-          if (socket.connected) {
-            clearTimeout(timeout);
-            resolve();
+        // ✅ USAR querySelector PARA ENCONTRAR O CANVAS (não tem ID)
+        const canvas = gameContainer.querySelector('canvas') as HTMLCanvasElement;
+        if (!canvas || !canvas.width || !canvas.height) {
+          if (captureAttempts < maxCaptureAttempts) {
+            if (captureAttempts % 5 === 0) {
+              const status = canvas 
+                ? `Canvas sem dimensões válidas (${canvas.width}x${canvas.height})` 
+                : 'Sem canvas encontrado';
+              console.warn(`[HOST] ⚠️ ${status} (tentativa ${captureAttempts}/${maxCaptureAttempts})`);
+            }
+            captureTimeout = setTimeout(attemptCapture, 2000);
           } else {
-            socket.once('connect', () => {
-              clearTimeout(timeout);
-              resolve();
-            });
-            socket.once('connect_error', () => {
-              clearTimeout(timeout);
-              reject(new Error('Falha ao conectar'));
-            });
+            console.warn('[HOST] ⚠️ Canvas ainda não pronto após ' + maxCaptureAttempts + ' tentativas');
+            // Continuar tentando indefinidamente em background
+            captureTimeout = setTimeout(attemptCapture, 5000);
           }
+          return;
+        }
+
+        console.log('[HOST] ✅ Canvas encontrado!', {
+          width: canvas.width,
+          height: canvas.height
         });
 
-        if (!isMounted) return;
+        setCanvasFound(true);
+        setEmulatorLoaded(true);
 
-        console.log('[HOST VIEW SOCKET] ✅ Conectado ao Socket.IO!');
-        console.log('✅✅✅ [HOST SOCKET] CONECTADO! Socket ID:', socket.id);
-
-        // ✅ CORRIGIDO: Usar 'join-or-create-session' como HOST
-        socket.emit('join-or-create-session', {
-          sessionId,
-          userId: user.id,
-          username: user.username,
-          isHost: true,
-          gameTitle,
-          timestamp: new Date().toISOString()
-        });
-        
-        console.log('[HOST VIEW SOCKET] 📤 Enviado evento: join-or-create-session (como HOST)');
-        console.log('[HOST SOCKET] 📊 Estado do socket após join:', {
-          id: socket.id,
-          connected: socket.connected,
-          hasListeners: !!socket.listeners('stream-frame')
-        });
-
-        // 🎯 ESCUTAR PEDIDO DE SINCRONIZAÇÃO DE NOVO PLAYER
-        socket.on('request-sync', (data: any) => {
-          console.log('[HOST VIEW SOCKET] 📡 Pedido de sincronização do novo player:', data.new_player_id);
-          
-          // Se temos um frame capturado, enviar para o novo player
-          if (lastFrameRef.current) {
-            console.log('[HOST VIEW SOCKET] 📨 Enviando frame para sincronizar novo player...');
-            socket.emit('sync-state', {
-              frame: lastFrameRef.current,
-              timestamp: Date.now(),
-              forPlayerId: data.new_player_id
-            });
-            console.log('[HOST VIEW SOCKET] ✅ Frame de sincronização enviado!');
-          } else {
-            console.warn('[HOST VIEW SOCKET] ⚠️ Nenhum frame disponível para sincronizar ainda');
-          }
-        });
-
-        // Outras listeners do Socket.IO
-        socket.on('player-joined', (data: any) => {
-          if (isMounted) {
-            console.log('[HOST VIEW SOCKET] 👥 Player entrou:', data.playerName);
-          }
-        });
-
-        socket.on('disconnect', () => {
-          if (isMounted) {
-            console.log('[HOST VIEW SOCKET] 🔌 Desconectado do Socket.IO');
-          }
-        });
-
-        socket.on('connect_error', (error: any) => {
-          if (isMounted) {
-            console.error('[HOST VIEW SOCKET] ❌ Erro de conexão:', error);
-          }
-        });
-
-        // 🔌 DEBUG: Listener para evento de conexão
-        socket.on('connect', () => {
-          console.log('🟢🟢🟢 [HOST SOCKET] RECONECTADO! Socket ID:', socket.id);
-          console.log('[HOST SOCKET] Disponível para enviar frames!');
-        });
-
-      } catch (err: any) {
-        console.error('[HOST VIEW SOCKET] ❌ Erro ao conectar:', err);
+        // Inicia streaming via PeerJS
+        const stream = startStreaming(canvas);
+        if (stream) {
+          console.log('[HOST] 🎉 Streaming WebRTC iniciado com sucesso!');
+          console.log('[HOST] 📹 Stream ID:', stream.id);
+          console.log('[HOST] 🎬 Tracks:', stream.getTracks().length);
+          setStatus('ready');
+        } else {
+          console.error('[HOST] ❌ Falha ao iniciar streaming');
+          setStatus('error');
+          setError('Falha ao iniciar streaming WebRTC');
+        }
+      } catch (error) {
+        console.error('[HOST] ❌ Erro ao capturar canvas:', error);
+        if (captureAttempts < maxCaptureAttempts) {
+          captureTimeout = setTimeout(attemptCapture, 2000);
+        }
       }
     };
 
-    setupSocketConnection();
+    // Tenta capturar após um maior delay para garantir que EmulatorJS carregou
+    // ✅ Aumentado para 5 segundos inicial (EmulatorJS pode levar tempo)
+    captureTimeout = setTimeout(attemptCapture, 5000);
 
     return () => {
-      isMounted = false;
-      if (socketRef.current) {
-        socketRef.current.emit('close-session', { sessionId });
-        // NÃO desconectar imediatamente para permitir que outros eventos sejam processados
+      if (captureTimeout) clearTimeout(captureTimeout);
+    };
+  }, [peerReady, startStreaming]);
+
+  // 🔍 DEBUG: Listener global para todas as mensagens + CANVAS READY
+  useEffect(() => {
+    const debugListener = (event: MessageEvent) => {
+      // Log apenas mensagens importantes (não spam)
+      if (event.data?.type && event.data.type !== 'emulator-frame') {
+        console.log('[HOST VIEW DEBUG] 📨 Mensagem:', event.data.type);
+        
+        // ✅ Canvas está pronto - atualizar status
+        if (event.data.type === 'canvas-ready') {
+          console.log('[HOST VIEW] ✅ Canvas pronto no iframe!', event.data);
+          setCanvasFound(true);
+        }
       }
     };
-  }, [sessionId, user?.id, user?.username, gameTitle]);
-
-  // Atualizar o último frame quando um novo for capturado
-  useEffect(() => {
-    // lastFrameRef já está sendo atualizado em captureAndStreamFrameWithSync
-    // Não precisa fazer nada aqui
-  }, [captureAndStreamFrame]);
-
-  /*
-  const startMultiplayerHost = async (canvas: HTMLCanvasElement) => {
-    if (!user?.id) return;
-
-    try {
-      setStatus('starting');
-      
-      const host = new WebRTCHost(sessionId, user.id);
-      hostRef.current = host;
-
-      // Callbacks
-      host.onPlayerJoined = (playerId: string, username: string) => {
-        console.log('[HOST VIEW] 👤 Player entrou:', username);
-      };
-
-      host.onPlayerLeft = (playerId: string) => {
-        console.log('[HOST VIEW] 👋 Player saiu:', playerId);
-      };
-
-      host.onInputReceived = (playerId: string, input: any) => {
-        console.log('[HOST VIEW] 🎮 Input recebido de', playerId, ':', input);
-        
-        // Enviar input para o emulador
-        if (iframeRef.current?.contentWindow) {
-          iframeRef.current.contentWindow.postMessage({
-            type: 'gamepad-input',
-            playerId,
-            input
-          }, '*');
-        }
-      };
-
-      host.onError = (errorMsg: string) => {
-        console.error('[HOST VIEW] ❌ Erro:', errorMsg);
-        setError(errorMsg);
-        setStatus('error');
-      };
-
-      // Inicia host
-      await host.start(canvas);
-      console.log('[HOST VIEW] ✅ Host iniciado!');
-      setStatus('ready');
-    } catch (err: any) {
-      console.error('[HOST VIEW] ❌ Erro ao iniciar host:', err);
-      setError(`Erro ao iniciar: ${err.message}`);
-      setStatus('error');
-    }
-  };
-  */
+    
+    window.addEventListener('message', debugListener);
+    
+    return () => window.removeEventListener('message', debugListener);
+  }, []);
 
   const handleCopyUrl = () => {
     navigator.clipboard.writeText(shareUrl);
@@ -482,10 +418,6 @@ const MultiplayerHostView: React.FC<MultiplayerHostViewProps> = ({
   };
 
   const handleClose = async () => {
-    if (hostRef.current) {
-      // hostRef.current.stop();
-    }
-    
     // 🔥 DELETAR SESSÃO DO FIRESTORE quando host sair
     try {
       console.log('[HOST VIEW] 🗑️ Deletando sessão do Firestore:', sessionId);
@@ -512,7 +444,7 @@ const MultiplayerHostView: React.FC<MultiplayerHostViewProps> = ({
     const socketUrl = import.meta.env.VITE_SOCKET_URL || '';
     const emulatorBasePath = (import.meta.env.VITE_MULTIPLAYER_EMULATOR || '/universal-player.html').trim();
 
-    // Build URL with Socket.IO parameters for multiplayer
+    // Build URL with Socket.IO parameters for multiplayer + desabilitar controles mobile
     const params = new URLSearchParams({
       rom: processedRomUrl,
       title: gameTitle,
@@ -521,6 +453,8 @@ const MultiplayerHostView: React.FC<MultiplayerHostViewProps> = ({
       sessionId: sessionId,
       userId: user.id,
       username: user.username || 'Host',
+      mobile: 'false', // ✅ DESABILITAR CONTROLES MOBILE
+      touch: 'false',   // ✅ DESABILITAR TOUCH
       v: cacheBuster.toString()
     });
 
@@ -532,15 +466,34 @@ const MultiplayerHostView: React.FC<MultiplayerHostViewProps> = ({
     return `${normalizedBasePath}?${params.toString()}`;
   }, [processedRomUrl, gameTitle, platform, sessionId, user?.id, user?.username]); // Recalcula se qualquer dependência mudar
 
-  // Log da URL do emulador
+  // Log da URL do emulador + Diagnóstico detalhado
   useEffect(() => {
     if (emulatorUrl) {
-      console.log('[HOST VIEW] 🎮 URL do emulador construída:', emulatorUrl);
+      console.log('═══════════════════════════════════════════════════════');
+      console.log('[HOST VIEW] 🎮 URL do emulador construída');
+      console.log('[HOST VIEW] Emulator URL:', emulatorUrl);
       console.log('[HOST VIEW] 📦 ROM URL:', processedRomUrl);
       console.log('[HOST VIEW] 🎯 Platform:', platform);
       console.log('[HOST VIEW] 📝 Title:', gameTitle);
+      console.log('[HOST VIEW] Session ID:', sessionId);
+      console.log('[HOST VIEW] User ID:', user?.id);
+      console.log('[HOST VIEW] Status:', status);
+      console.log('[HOST VIEW] PeerJS Ready:', peerReady);
+      console.log('[HOST VIEW] Emulator Loaded:', emulatorLoaded);
+      console.log('═══════════════════════════════════════════════════════');
+      
+      // Log periodicamente para verificar se está progredindo
+      const debugInterval = setInterval(() => {
+        if (emulatorLoaded && !peerReady) {
+          console.log('[HOST VIEW DEBUG] ⏳ Emulador carregado, aguardando PeerJS...');
+        } else if (peerReady && !isStreaming) {
+          console.log('[HOST VIEW DEBUG] ⏳ PeerJS pronto, aguardando stream...');
+        }
+      }, 5000);
+      
+      return () => clearInterval(debugInterval);
     }
-  }, [emulatorUrl, processedRomUrl, platform, gameTitle]);
+  }, [emulatorUrl, processedRomUrl, platform, gameTitle, peerReady, isStreaming, emulatorLoaded, status, sessionId, user]);
 
   return (
     <div className="fixed inset-0 bg-black z-50 flex flex-col">
@@ -618,12 +571,16 @@ const MultiplayerHostView: React.FC<MultiplayerHostViewProps> = ({
                 ref={iframeRef}
                 src={emulatorUrl}
                 className="w-full h-full border-0"
-                allow="gamepad; autoplay; microphone; camera; speaker; payment"
-                sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals allow-orientation-lock"
+                allow="gamepad; autoplay; microphone; camera; payment; fullscreen; accelerometer; gyroscope; magnetometer"
+                sandbox="allow-same-origin allow-scripts allow-popups allow-forms allow-modals allow-orientation-lock allow-presentation allow-pointer-lock"
                 title="Emulator"
                 style={{
                   minHeight: '100%',
-                  overflow: 'auto'
+                  overflow: 'auto',
+                  backgroundColor: '#000'
+                }}
+                onLoad={() => {
+                  console.log('🟢 [IFRAME] Iframe loaded successfully');
                 }}
               />
               
@@ -660,21 +617,114 @@ const MultiplayerHostView: React.FC<MultiplayerHostViewProps> = ({
         <div className={`bg-gray-900 border-l border-gray-800 flex flex-col transition-all duration-300 ${
           sidebarOpen ? 'w-80' : 'w-0 border-0 overflow-hidden'
         }`}>
-          {/* Status */}
+          {/* Status - MELHORADO */}
           <div className="p-4 border-b border-gray-800">
-            <div className="flex items-center gap-2 mb-3">
-              {status === 'ready' ? (
-                <>
-                  <Wifi className="w-5 h-5 text-green-400" />
-                  <span className="text-green-400 font-medium">Host ativo</span>
-                </>
+            {/* Status Principal */}
+            <div className="mb-4">
+              {peerReady && isStreaming ? (
+                <div className="bg-green-900/30 border border-green-500/30 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <Wifi className="w-5 h-5 text-green-400 animate-pulse" />
+                    <span className="text-green-400 font-bold">🎮 Transmissão Ativa!</span>
+                  </div>
+                  <p className="text-xs text-green-300 mt-1">Players podem ver e jogar</p>
+                </div>
+              ) : peerReady && canvasFound ? (
+                <div className="bg-yellow-900/30 border border-yellow-500/30 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-5 h-5 text-yellow-400 animate-spin" />
+                    <span className="text-yellow-400 font-medium">⏳ Iniciando stream...</span>
+                  </div>
+                  <p className="text-xs text-yellow-300 mt-1">Canvas capturado, conectando...</p>
+                </div>
+              ) : peerReady && emulatorLoaded ? (
+                <div className="bg-blue-900/30 border border-blue-500/30 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-5 h-5 text-blue-400 animate-spin" />
+                    <span className="text-blue-400 font-medium">🎮 Procurando canvas...</span>
+                  </div>
+                  <p className="text-xs text-blue-300 mt-1">Emulador carregado</p>
+                </div>
+              ) : peerReady ? (
+                <div className="bg-purple-900/30 border border-purple-500/30 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-5 h-5 text-purple-400 animate-spin" />
+                    <span className="text-purple-400 font-medium">📦 Carregando emulador...</span>
+                  </div>
+                  <p className="text-xs text-purple-300 mt-1">PeerJS pronto</p>
+                </div>
               ) : (
-                <>
-                  <WifiOff className="w-5 h-5 text-gray-400" />
-                  <span className="text-gray-400 font-medium">Iniciando...</span>
-                </>
+                <div className="bg-gray-800 rounded-lg p-3">
+                  <div className="flex items-center gap-2">
+                    <Loader2 className="w-5 h-5 text-gray-400 animate-spin" />
+                    <span className="text-gray-400 font-medium">🔌 Conectando servidor...</span>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">Aguarde...</p>
+                </div>
               )}
             </div>
+
+            {/* Checklist de Status */}
+            <div className="space-y-2 mb-3">
+              <div className="flex items-center gap-2 text-sm">
+                {peerReady ? (
+                  <span className="text-green-400">✓</span>
+                ) : (
+                  <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
+                )}
+                <span className={peerReady ? 'text-green-400' : 'text-gray-400'}>
+                  Servidor PeerJS
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                {emulatorLoaded ? (
+                  <span className="text-green-400">✓</span>
+                ) : (
+                  <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
+                )}
+                <span className={emulatorLoaded ? 'text-green-400' : 'text-gray-400'}>
+                  Emulador carregado
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                {canvasFound ? (
+                  <span className="text-green-400">✓</span>
+                ) : (
+                  <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
+                )}
+                <span className={canvasFound ? 'text-green-400' : 'text-gray-400'}>
+                  Canvas capturado
+                </span>
+              </div>
+              <div className="flex items-center gap-2 text-sm">
+                {isStreaming ? (
+                  <span className="text-green-400">✓</span>
+                ) : (
+                  <Loader2 className="w-4 h-4 text-gray-400 animate-spin" />
+                )}
+                <span className={isStreaming ? 'text-green-400' : 'text-gray-400'}>
+                  WebRTC Streaming
+                </span>
+              </div>
+            </div>
+
+            {/* PeerJS Info */}
+            {peerId && (
+              <div className="bg-gray-800 rounded-lg p-3 mb-3">
+                <p className="text-xs text-gray-400 mb-1">PeerJS ID:</p>
+                <p className="text-xs text-white font-mono truncate">{peerId}</p>
+              </div>
+            )}
+
+            {/* Streaming Info */}
+            {isStreaming && (
+              <div className="bg-green-900/30 border border-green-700/50 rounded-lg p-3 mb-3">
+                <p className="text-xs text-green-400 mb-1">✅ WebRTC Streaming</p>
+                <p className="text-xs text-gray-300">
+                  {connectedPlayers.length} player{connectedPlayers.length !== 1 ? 's' : ''} assistindo
+                </p>
+              </div>
+            )}
 
             {/* Share URL */}
             <div className="bg-gray-800 rounded-lg p-3">
@@ -708,38 +758,46 @@ const MultiplayerHostView: React.FC<MultiplayerHostViewProps> = ({
             <div className="flex items-center gap-2 mb-3">
               <Users className="w-5 h-5 text-purple-400" />
               <h3 className="font-semibold text-white">
-                Players ({players.length}/4)
+                Players conectados ({connectedPlayers.length})
               </h3>
             </div>
 
             <div className="space-y-2">
-              {players.map((player) => (
+              {/* Host (você) */}
+              <div className="bg-gray-800 rounded-lg p-3 flex items-center justify-between border-2 border-purple-600">
+                <div className="flex items-center gap-2">
+                  <Crown className="w-4 h-4 text-yellow-400" />
+                  <div>
+                    <p className="text-white font-medium">{user?.username || 'Você'}</p>
+                    <p className="text-xs text-purple-400">🎮 HOST (jogando)</p>
+                  </div>
+                </div>
+              </div>
+
+              {/* Players conectados via PeerJS */}
+              {connectedPlayers.map((playerId, index) => (
                 <div
-                  key={player.id}
+                  key={playerId}
                   className="bg-gray-800 rounded-lg p-3 flex items-center justify-between"
                 >
                   <div className="flex items-center gap-2">
-                    {player.id === user?.id && (
-                      <Crown className="w-4 h-4 text-yellow-400" />
-                    )}
+                    <Users className="w-4 h-4 text-green-400" />
                     <div>
-                      <p className="text-white font-medium">{player.username}</p>
-                      <p className="text-xs text-gray-400">Player {player.playerNumber}</p>
+                      <p className="text-white font-medium">Player {index + 1}</p>
+                      <p className="text-xs text-gray-400 font-mono truncate max-w-[180px]">{playerId}</p>
                     </div>
                   </div>
                   
-                  {player.isReady ? (
-                    <span className="text-xs text-green-400 font-medium">Pronto</span>
-                  ) : (
-                    <span className="text-xs text-gray-500">Aguardando...</span>
-                  )}
+                  <span className="text-xs text-green-400 font-medium">🟢 Conectado</span>
                 </div>
               ))}
 
-              {players.length === 0 && (
+              {/* Mensagem quando nenhum player conectado */}
+              {connectedPlayers.length === 0 && (
                 <div className="text-center py-8 text-gray-500">
                   <Users className="w-12 h-12 mx-auto mb-2 opacity-50" />
-                  <p className="text-sm">Aguardando players...</p>
+                  <p className="text-sm">Aguardando players se conectarem...</p>
+                  <p className="text-xs mt-2">Compartilhe o link acima!</p>
                 </div>
               )}
             </div>

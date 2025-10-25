@@ -198,29 +198,11 @@ const CyberpunkAuthV2: React.FC = () => {
           transform: 'translateZ(0)',
           willChange: 'auto'
         }}
-        onLoadStart={(e) => {
-          console.log('🔄 Iniciando carregamento...');
-          e.currentTarget.playbackRate = 1.0;
-        }}
-        onLoadedMetadata={(e) => {
-          console.log('📊 Metadados OK');
-          e.currentTarget.play().catch(err => console.warn('Play error:', err));
-        }}
-        onLoadedData={(e) => {
-          console.log('✅ Vídeo carregado!');
-          e.currentTarget.play().catch(err => console.warn('Play error:', err));
-        }}
-        onCanPlay={(e) => {
-          console.log('✅ Pode reproduzir!');
-          e.currentTarget.play().catch(err => console.warn('Play error:', err));
-        }}
-        onPlay={() => console.log('▶️ Reproduzindo!')}
-        onStalled={() => console.warn('⚠️ Travado - reiniciando...')}
-        onError={(e) => {
-          console.error('❌ Erro no vídeo:', e);
+        onError={() => {
+          // Video background decorativo - falha não crítica
         }}
       >
-        <source src="/videoplayback.mp4" type="video/mp4" />
+        <source src="/bg.mp4" type="video/mp4" />
         Seu navegador não suporta vídeo HTML5.
       </video>
 
@@ -276,10 +258,6 @@ const CyberpunkAuthV2: React.FC = () => {
         onPlay={() => console.log('▶️ Vídeo está reproduzindo!')}
       >
         <source src="/bg.mp4" type="video/mp4" />
-        <source src="bg.mp4" type="video/mp4" />
-        <source src="/videoplayback.mp4" type="video/mp4" />
-        <source src="videoplayback.mp4" type="video/mp4" />
-        <source src="./videoplayback.mp4" type="video/mp4" />
         Seu navegador não suporta vídeo HTML5.
       </video>
 

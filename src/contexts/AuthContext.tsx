@@ -122,16 +122,33 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
     console.log('[PRESENCE] 🟢 Iniciando heartbeat para:', user.username);
 
-    // Função para atualizar presença
-    const updatePresence = async () => {
+    // Função para atualizar presença com retry para erros do Firestore
+    const updatePresence = async (retryCount = 0, maxRetries = 2) => {
       try {
         await updateDoc(doc(db, 'users', user.id), {
           is_online: true,
           last_seen: serverTimestamp(),
         });
         console.log('[PRESENCE] ✅ Heartbeat atualizado');
-      } catch (error) {
-        console.error('[PRESENCE] ❌ Erro no heartbeat:', error);
+      } catch (error: any) {
+        // ❌ Detectar erro específico do Firestore: "ve":-1 (estado corrupto)
+        const errorMsg = error?.message || '';
+        const isFirestoreCorrupt = errorMsg.includes('INTERNAL ASSERTION FAILED') || 
+                                   errorMsg.includes('ve') ||
+                                   errorMsg.includes('Unexpected state');
+
+        if (isFirestoreCorrupt && retryCount < maxRetries) {
+          console.warn(`⚠️ [PRESENCE] Estado Firestore corrupto detectado. Retry ${retryCount + 1}...`);
+          // ⏳ Aguardar antes de tentar novamente
+          await new Promise(resolve => setTimeout(resolve, 1000 * (retryCount + 1)));
+          // 🔄 Tentar novamente
+          return updatePresence(retryCount + 1, maxRetries);
+        }
+        
+        // Suprimir erros de Firestore para não poluir o console
+        if (!isFirestoreCorrupt) {
+          console.error('[PRESENCE] ❌ Erro no heartbeat:', error);
+        }
       }
     };
 
@@ -151,8 +168,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           is_online: false,
           last_seen: serverTimestamp(),
         });
-      } catch (error) {
-        console.error('[PRESENCE] ❌ Erro ao marcar offline:', error);
+      } catch (error: any) {
+        // Suprimir erros de Firestore corrupto para não poluir o console
+        const errorMsg = error?.message || '';
+        if (!errorMsg.includes('INTERNAL ASSERTION FAILED') && !errorMsg.includes('ve')) {
+          console.error('[PRESENCE] ❌ Erro ao marcar offline:', error);
+        }
       }
     };
 

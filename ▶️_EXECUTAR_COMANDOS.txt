@@ -1,0 +1,169 @@
+# ========================================
+# 🎮 EXECUTAR AGORA - SISTEMA PRONTO!
+# ========================================
+
+# ✅ PASSO 1: VERIFICAR SE OS ARQUIVOS FORAM CRIADOS
+# ========================================
+
+# A pasta peerjs-server/ já foi criada com:
+# - server.js (servidor PeerJS)
+# - package.json (dependências)
+# - public/lobby.html (lobby)
+# - public/host.html (host)
+# - public/player.html (player)
+
+
+# ✅ PASSO 2: FAZER COMMIT E PUSH PARA GITHUB
+# ========================================
+
+# Execute estes comandos no PowerShell:
+
+cd c:\Users\peternoia\Desktop\playnowemulator-firebase_BACKUP_2025-10-19_100145
+
+# Ver o que mudou
+git status
+
+# Adicionar a nova pasta
+git add peerjs-server/
+
+# Commit
+git commit -m "feat: Sistema multiplayer PeerJS WebRTC P2P - Deploy Render"
+
+# Push para GitHub
+git push origin main
+
+
+# ✅ PASSO 3: CRIAR WEB SERVICE NO RENDER
+# ========================================
+
+# 1. Abra no navegador:
+#    https://dashboard.render.com/
+
+# 2. Clique em "New +" → "Web Service"
+
+# 3. Selecione o repositório:
+#    felipelahhouse/playnowweb
+
+# 4. Preencha os campos:
+#    Name: playnow-multiplayer
+#    Environment: Node
+#    Region: Oregon (US West)
+#    Branch: main
+#    Root Directory: peerjs-server           ← MUITO IMPORTANTE!
+#    Build Command: npm install
+#    Start Command: node server.js
+#    Instance Type: Free
+
+# 5. Clique "Create Web Service"
+
+# 6. Aguarde 2-5 minutos para o deploy
+
+
+# ✅ PASSO 4: TESTAR O SERVIDOR
+# ========================================
+
+# Após o deploy, você terá uma URL tipo:
+# https://playnow-multiplayer.onrender.com
+
+# Abra no navegador:
+# https://playnow-multiplayer.onrender.com
+
+# Você deve ver:
+# ✅ Servidor Online e Funcionando!
+
+# Teste o lobby:
+# https://playnow-multiplayer.onrender.com/lobby.html
+
+
+# ✅ PASSO 5: TESTAR MULTIPLAYER COMPLETO
+# ========================================
+
+# NAVEGADOR 1 - HOST:
+# 1. Abra: https://playnow-multiplayer.onrender.com/lobby.html
+# 2. Preencha "Nome da Sala": Teste Mario
+# 3. Selecione "SNES - Super Nintendo"
+# 4. Clique "Criar Sala e Ser o HOST"
+# 5. Configure ROM do jogo
+# 6. Clique "Carregar Emulador"
+# 7. Aguarde 2-3 segundos
+# 8. Clique "Iniciar Streaming"
+
+# NAVEGADOR 2 - PLAYER:
+# 1. Abra: https://playnow-multiplayer.onrender.com/lobby.html
+# 2. Veja a sala aparecer na lista
+# 3. Clique na sala
+# 4. Aguarde conexão
+# 5. Veja o vídeo do emulador
+# 6. Use WASD + T/Y para controlar
+# 7. Funciona! 🎉
+
+
+# ✅ VERIFICAR STATUS DO DEPLOY
+# ========================================
+
+# No Render Dashboard, vá em "Logs" e veja:
+
+# ==> Cloning from https://github.com/felipelahhouse/playnowweb...
+# ==> Entering directory: peerjs-server
+# ==> Running 'npm install'
+# ==> Running 'node server.js'
+# 🎮 PLAYNOW MULTIPLAYER SERVER
+# ✅ Servidor HTTP rodando na porta 10000
+
+
+# ✅ API PARA TESTAR
+# ========================================
+
+# Ver salas ativas:
+# https://playnow-multiplayer.onrender.com/api/salas
+
+# Health check:
+# https://playnow-multiplayer.onrender.com/health
+
+
+# ✅ SE DER ERRO NO PRIMEIRO ACESSO
+# ========================================
+
+# Render Free "dorme" após 15 min sem uso
+# Primeiro acesso pode demorar 30-60 segundos
+# Aguarde e tente novamente!
+
+
+# ✅ ESTRUTURA FINAL DO REPOSITÓRIO
+# ========================================
+
+# playnowweb/
+# ├── peerjs-server/              ← NOVO!
+# │   ├── server.js
+# │   ├── package.json
+# │   └── public/
+# │       ├── lobby.html
+# │       ├── host.html
+# │       └── player.html
+# │
+# └── (outros arquivos do playnowweb)
+
+
+# ✅ RESUMO DOS COMANDOS
+# ========================================
+
+# Execute em sequência:
+
+cd c:\Users\peternoia\Desktop\playnowemulator-firebase_BACKUP_2025-10-19_100145
+git add peerjs-server/
+git commit -m "feat: Sistema multiplayer PeerJS WebRTC"
+git push origin main
+
+# Depois:
+# 1. Ir para https://dashboard.render.com/
+# 2. New Web Service
+# 3. Conectar repo playnowweb
+# 4. Root Directory: peerjs-server
+# 5. Build: npm install
+# 6. Start: node server.js
+# 7. Create!
+
+
+# 🎉 PRONTO!
+# O sistema multiplayer está deployado no Render.com!
+# URL: https://playnow-multiplayer.onrender.com/lobby.html

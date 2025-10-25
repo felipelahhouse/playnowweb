@@ -1,0 +1,182 @@
+/**
+ * 🎮 Multiplayer HOST Component - PeerJS WebRTC
+ * Componente para criar sessão multiplayer e transmitir gameplay
+ */
+
+import React, { useEffect, useRef, useState } from 'react';
+import { usePeerJSHost, type PeerInputMessage } from '../hooks/usePeerJSHost';
+import { doc, updateDoc } from 'firebase/firestore';
+import { db } from '../lib/firebase';
+import { Loader2, Users, Wifi, Copy, Check } from 'lucide-react';
+
+interface MultiplayerHostProps {
+  sessionId: string;
+  userId: string;
+  canvasElement: HTMLCanvasElement | null;
+  onInputReceived?: (input: PeerInputMessage, playerId: string) => void;
+}
+
+export const MultiplayerHost: React.FC<MultiplayerHostProps> = ({
+  sessionId,
+  userId,
+  canvasElement,
+  onInputReceived
+}) => {
+  const [copied, setCopied] = useState(false);
+  const [isStreaming, setIsStreaming] = useState(false);
+  const streamStartedRef = useRef(false);
+
+  // 🎮 PeerJS Hook - HOST
+  const {
+    peerId,
+    isReady,
+    connectedPlayers,
+    startStreaming,
+    stopStreaming
+  } = usePeerJSHost({
+    sessionId,
+    userId,
+    onPlayerJoined: (playerId) => {
+      console.log('👤 [HOST] Player conectou:', playerId);
+    },
+    onPlayerLeft: (playerId) => {
+      console.log('👋 [HOST] Player saiu:', playerId);
+    },
+    onInputReceived: (playerId, input) => {
+      console.log('🎮 [HOST] Input recebido:', input);
+      onInputReceived?.(input, playerId);
+    }
+  });
+
+  // 📡 Atualizar Firestore com o PeerID do HOST
+  useEffect(() => {
+    if (peerId && sessionId) {
+      const sessionRef = doc(db, 'multiplayer_sessions', sessionId);
+      updateDoc(sessionRef, {
+        hostPeerId: peerId,
+        status: 'active',
+        updatedAt: new Date()
+      }).then(() => {
+        console.log('✅ [HOST] PeerID salvo no Firestore:', peerId);
+      }).catch((error) => {
+        console.error('❌ [HOST] Erro ao salvar PeerID:', error);
+      });
+    }
+  }, [peerId, sessionId]);
+
+  // 🎬 Iniciar streaming quando canvas estiver pronto
+  useEffect(() => {
+    if (canvasElement && isReady && !streamStartedRef.current) {
+      console.log('🎬 [HOST] Iniciando streaming do canvas...');
+      
+      const stream = startStreaming(canvasElement);
+      
+      if (stream) {
+        setIsStreaming(true);
+        streamStartedRef.current = true;
+        console.log('✅ [HOST] Streaming iniciado');
+      } else {
+        console.error('❌ [HOST] Falha ao iniciar streaming');
+      }
+    }
+
+    return () => {
+      if (streamStartedRef.current) {
+        console.log('🛑 [HOST] Parando streaming...');
+        stopStreaming();
+        setIsStreaming(false);
+        streamStartedRef.current = false;
+      }
+    };
+  }, [canvasElement, isReady, startStreaming, stopStreaming]);
+
+  // 📋 Copiar PeerID
+  const copyPeerId = () => {
+    if (peerId) {
+      navigator.clipboard.writeText(peerId);
+      setCopied(true);
+      setTimeout(() => setCopied(false), 2000);
+    }
+  };
+
+  return (
+    <div className="fixed top-4 right-4 z-50">
+      <div className="bg-gray-900/95 backdrop-blur-sm border border-gray-700 rounded-lg p-4 shadow-xl min-w-[300px]">
+        {/* Header */}
+        <div className="flex items-center gap-2 mb-3">
+          <div className={`w-3 h-3 rounded-full ${isReady ? 'bg-green-500 animate-pulse' : 'bg-gray-500'}`} />
+          <h3 className="text-white font-semibold">Multiplayer HOST</h3>
+        </div>
+
+        {/* Status */}
+        {!isReady && (
+          <div className="flex items-center gap-2 text-yellow-400 mb-3">
+            <Loader2 className="w-4 h-4 animate-spin" />
+            <span className="text-sm">Conectando ao servidor...</span>
+          </div>
+        )}
+
+        {isReady && (
+          <>
+            {/* PeerID */}
+            <div className="mb-3">
+              <label className="text-xs text-gray-400 block mb-1">Room Code:</label>
+              <div className="flex items-center gap-2">
+                <code className="flex-1 bg-gray-800 px-3 py-2 rounded text-xs text-green-400 font-mono truncate">
+                  {peerId}
+                </code>
+                <button
+                  onClick={copyPeerId}
+                  className="p-2 hover:bg-gray-800 rounded transition-colors"
+                  title="Copiar código"
+                >
+                  {copied ? (
+                    <Check className="w-4 h-4 text-green-400" />
+                  ) : (
+                    <Copy className="w-4 h-4 text-gray-400" />
+                  )}
+                </button>
+              </div>
+            </div>
+
+            {/* Players conectados */}
+            <div className="mb-3">
+              <div className="flex items-center gap-2 text-gray-400 text-sm">
+                <Users className="w-4 h-4" />
+                <span>{connectedPlayers.length} {connectedPlayers.length === 1 ? 'jogador' : 'jogadores'}</span>
+              </div>
+              
+              {connectedPlayers.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {connectedPlayers.map((playerId, index) => (
+                    <div key={playerId} className="flex items-center gap-2 text-xs text-gray-300 bg-gray-800 px-2 py-1 rounded">
+                      <div className="w-2 h-2 bg-green-500 rounded-full" />
+                      <span>Player {index + 1}</span>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Streaming Status */}
+            <div className="flex items-center gap-2 pt-3 border-t border-gray-700">
+              <Wifi className={`w-4 h-4 ${isStreaming ? 'text-green-400' : 'text-gray-500'}`} />
+              <span className={`text-xs ${isStreaming ? 'text-green-400' : 'text-gray-500'}`}>
+                {isStreaming ? 'Transmitindo (60 FPS)' : 'Aguardando canvas...'}
+              </span>
+            </div>
+          </>
+        )}
+
+        {/* Instruções */}
+        <div className="mt-3 pt-3 border-t border-gray-700">
+          <p className="text-xs text-gray-400">
+            Compartilhe o Room Code com outros jogadores para que eles possam se conectar.
+          </p>
+        </div>
+      </div>
+    </div>
+  );
+};
+
+export default MultiplayerHost;

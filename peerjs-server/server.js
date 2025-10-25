@@ -345,19 +345,93 @@ peerServer.on('disconnect', (client) => {
 });
 
 // ==========================================
-// LIMPEZA AUTOMÁTICA
+// LIMPEZA AUTOMÁTICA DE SALAS VAZIAS
 // ==========================================
 setInterval(() => {
   const agora = Date.now();
-  const TIMEOUT = 30 * 60 * 1000;
+  const TIMEOUT = 30 * 60 * 1000; // 30 minutos
+  const EMPTY_TIMEOUT = 2 * 60 * 1000; // 2 minutos para salas vazias
 
   salas.forEach((sala, roomId) => {
+    // Deletar salas antigas (30min)
     if (agora - sala.created > TIMEOUT) {
       salas.delete(roomId);
-      console.log(`🧹 [CLEANUP] Sala ${roomId} removida (timeout)`);
+      console.log(`🧹 [CLEANUP] Sala ${roomId} removida (timeout 30min)`);
+      return;
+    }
+
+    // Deletar salas vazias (sem host E sem players) após 2min
+    if (sala.players.length === 0 && (!sala.host || agora - sala.created > EMPTY_TIMEOUT)) {
+      salas.delete(roomId);
+      console.log(`🧹 [CLEANUP] Sala ${roomId} removida (vazia há 2min)`);
     }
   });
-}, 5 * 60 * 1000);
+
+  // Log periódico
+  console.log(`📊 [STATS] Salas ativas: ${salas.size}`);
+}, 60 * 1000); // Executar a cada 1 minuto
+
+// ==========================================
+// API - SINCRONIZAÇÃO COM FIRESTORE
+// ==========================================
+
+// Sincronizar estado de uma sala específica
+app.post('/api/rooms/sync', (req, res) => {
+  const { roomId, hostPeerId, players, gameTitle, platform } = req.body;
+  
+  if (!roomId) {
+    return res.status(400).json({ error: 'roomId é obrigatório' });
+  }
+
+  let sala = salas.get(roomId);
+  
+  if (!sala) {
+    // Criar sala se não existir
+    sala = {
+      host: hostPeerId,
+      players: players || [],
+      name: gameTitle || 'Sala Multiplayer',
+      game: gameTitle || 'Jogo não especificado',
+      platform: platform || 'Desconhecido',
+      created: Date.now(),
+      lastSync: Date.now()
+    };
+    salas.set(roomId, sala);
+    console.log(`🔄 [SYNC] Nova sala sincronizada: ${roomId}`);
+  } else {
+    // Atualizar sala existente
+    sala.players = players || sala.players;
+    sala.lastSync = Date.now();
+    console.log(`🔄 [SYNC] Sala atualizada: ${roomId} (${sala.players.length} players)`);
+  }
+
+  res.json({ 
+    success: true, 
+    roomId,
+    sala: {
+      ...sala,
+      playersCount: sala.players.length
+    }
+  });
+});
+
+// Deletar sala vazia (chamado pelo Firestore quando sala fica vazia)
+app.post('/api/rooms/cleanup', (req, res) => {
+  const { roomId } = req.body;
+  
+  if (!roomId) {
+    return res.status(400).json({ error: 'roomId é obrigatório' });
+  }
+
+  const sala = salas.get(roomId);
+  
+  if (sala) {
+    salas.delete(roomId);
+    console.log(`🗑️ [API] Sala ${roomId} deletada via cleanup request`);
+  }
+
+  res.json({ success: true, deleted: !!sala });
+});
 
 // ==========================================
 // GRACEFUL SHUTDOWN

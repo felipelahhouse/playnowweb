@@ -1,319 +1,275 @@
+/**
+ * 🎮 Multiplayer PLAYER Component - PeerJS WebRTC
+ * Componente para assistir e controlar sessão multiplayer
+ */
+
 import React, { useEffect, useRef, useState } from 'react';
-import { useAuth } from '../../contexts/AuthContext';
-// import { useColyseusConnection } from '../../hooks/useColyseusConnection'; // REMOVIDO - Usando PeerJS
-import { Loader2, Send, Volume2, Users } from 'lucide-react';
+import { usePeerJSPlayer } from '../../hooks/usePeerJSPlayer';
+import { doc, onSnapshot } from 'firebase/firestore';
+import { db } from '../../lib/firebase';
+import { Loader2, Wifi, X, Gamepad2, AlertCircle } from 'lucide-react';
 
 interface MultiplayerPlayerProps {
   sessionId: string;
+  userId: string;
   onClose?: () => void;
-  userId?: string;
-  username?: string;
-}
-
-interface FramePayload {
-  frame: string;        // data URL (base64)
-  timestamp?: number;
-  frameNumber?: number;
-  sizeKB?: number;
 }
 
 export const MultiplayerPlayer: React.FC<MultiplayerPlayerProps> = ({
   sessionId,
-  onClose,
-  userId: propUserId,
-  username: propUsername
+  userId,
+  onClose
 }) => {
-  const { user } = useAuth();
-  const canvasRef = useRef<HTMLCanvasElement>(null);
-  const [isConnected, setIsConnected] = useState(false);
-  const [frameCount, setFrameCount] = useState(0);
-  const [streamActive, setStreamActive] = useState(false);
-  const [chatMessages, setChatMessages] = useState<Array<{ sender: string; message: string }>>([]);
-  const [chatInput, setChatInput] = useState('');
-  const [players, setPlayers] = useState<string[]>([]);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const [hostPeerId, setHostPeerId] = useState<string | null>(null);
+  const [gameTitle, setGameTitle] = useState<string>('');
+  const [sessionNotFound, setSessionNotFound] = useState(false);
 
-  const lastFrameTimeRef = useRef<number>(Date.now());
-  const fpsRef = useRef<number>(0);
+  // 📡 Buscar HOST PeerID do Firestore
+  useEffect(() => {
+    console.log('[PLAYER] 📡 Buscando sessão:', sessionId);
+    
+    const sessionRef = doc(db, 'multiplayer_sessions', sessionId);
+    const unsubscribe = onSnapshot(
+      sessionRef,
+      (snapshot) => {
+        if (snapshot.exists()) {
+          const data = snapshot.data();
+          console.log('[PLAYER] 📦 Dados da sessão:', data);
+          
+          setHostPeerId(data.hostPeerId || null);
+          setGameTitle(data.gameTitle || 'Jogo');
+          setSessionNotFound(false);
+          
+          if (data.hostPeerId) {
+            console.log('[PLAYER] ✅ HOST PeerID:', data.hostPeerId);
+          }
+        } else {
+          console.error('[PLAYER] ❌ Sessão não encontrada');
+          setSessionNotFound(true);
+        }
+      },
+      (error) => {
+        console.error('[PLAYER] ❌ Erro Firestore:', error);
+        setSessionNotFound(true);
+      }
+    );
 
-  // Usar props se fornecidas, senão usar contexto auth
-  const userId = propUserId || user?.id;
-  const username = propUsername || user?.username;
+    return () => unsubscribe();
+  }, [sessionId]);
 
-  // ========== COLYSEUS HOOK ========== (DESABILITADO - USANDO PEERJS)
-  /*
-  const {
-    joinRoom,
-    leaveRoom,
-    sendFrame,
-    sendMessage,
-    currentRoom,
-    isHost,
-    getPlayerCount,
-    addEventListener
-  } = useColyseusConnection({
-    onRoomJoined: (room) => {
-      console.log('✅ [PLAYER] Entrou na sala:', room.roomId);
-      setIsConnected(true);
+  // 🎮 PeerJS Hook - PLAYER
+  const { 
+    peerId,
+    isConnected, 
+    stream,
+    connectionError,
+    sendInput
+  } = usePeerJSPlayer({
+    sessionId,
+    hostPeerId: hostPeerId || '',
+    userId,
+    onStreamReceived: (remoteStream) => {
+      console.log('📹 [PLAYER] Stream recebido');
+      if (videoRef.current) {
+        videoRef.current.srcObject = remoteStream;
+        videoRef.current.play().catch(error => {
+          console.error('[PLAYER] ❌ Erro ao reproduzir:', error);
+        });
+      }
     },
     onDisconnected: () => {
-      console.log('❌ [PLAYER] Desconectado da sala');
-      setIsConnected(false);
-      setStreamActive(false);
-    },
-    onError: (error) => {
-      console.error('❌ [PLAYER] Erro:', error);
+      console.log('❌ [PLAYER] Desconectado');
     }
   });
-  */
 
-  // ========== CONECTAR À SALA ==========
+  // 🎮 Capturar inputs do teclado
   useEffect(() => {
-    if (!userId || !username) {
-      console.error('❌ [PLAYER] Usuário não autenticado');
-      return;
-    }
+    if (!isConnected || !stream) return;
 
-    const connectToRoom = async () => {
-      try {
-        console.log('🎮 [PLAYER] Conectando à sala:', sessionId);
-        
-        await joinRoom(sessionId, {
-          userId,
-          username
-        });
-
-        console.log('✅ [PLAYER] Conectado com sucesso');
-      } catch (error: any) {
-        console.error('❌ [PLAYER] Erro ao conectar:', error.message);
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Prevenir scroll
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
+        e.preventDefault();
       }
+
+      sendInput({
+        type: 'keydown',
+        code: e.code,
+        key: e.key,
+        timestamp: Date.now()
+      });
     };
 
-    connectToRoom();
+    const handleKeyUp = (e: KeyboardEvent) => {
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Space'].includes(e.code)) {
+        e.preventDefault();
+      }
+
+      sendInput({
+        type: 'keyup',
+        code: e.code,
+        key: e.key,
+        timestamp: Date.now()
+      });
+    };
+
+    console.log('🎮 [PLAYER] Ativando captura de inputs');
+    window.addEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
 
     return () => {
-      console.log('👋 [PLAYER] Limpando conexão...');
-      leaveRoom();
+      console.log('🎮 [PLAYER] Desativando captura de inputs');
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
     };
-  }, [sessionId, userId, username, joinRoom, leaveRoom]);
+  }, [isConnected, stream, sendInput]);
 
-  // ========== LISTENER DE FRAMES ==========
+  // 📹 Atualizar video quando stream mudar
   useEffect(() => {
-    const handleGameFrame = (data: FramePayload) => {
-      if (!canvasRef.current) {
-        console.warn('⚠️ [PLAYER] Canvas não encontrado!');
-        return;
-      }
-
-      const canvas = canvasRef.current;
-      const ctx = canvas.getContext('2d', { alpha: false });
-      
-      if (!ctx) {
-        console.error('❌ [PLAYER] Contexto 2D não disponível!');
-        return;
-      }
-
-      // Marcar stream como ativo
-      if (!streamActive) {
-        setStreamActive(true);
-        console.log('🎬 [PLAYER] Stream iniciado!');
-      }
-
-      // Calcular FPS
-      const now = Date.now();
-      const delta = now - lastFrameTimeRef.current;
-      if (delta > 0) {
-        fpsRef.current = Math.round(1000 / delta);
-      }
-      lastFrameTimeRef.current = now;
-
-      // Desenhar o frame
-      const img = new Image();
-      img.onload = () => {
-        if (canvas.width !== img.width || canvas.height !== img.height) {
-          canvas.width = img.width;
-          canvas.height = img.height;
-          console.log(`📐 [PLAYER] Canvas redimensionado: ${img.width}x${img.height}`);
-        }
-
-        ctx.drawImage(img, 0, 0);
-        setFrameCount((prev) => prev + 1);
-      };
-
-      img.onerror = () => {
-        console.error('❌ [PLAYER] Erro ao carregar imagem de frame');
-      };
-
-      img.src = data.frame;
-    };
-
-    const handleChatMessage = (message: any) => {
-      console.log('💬 [PLAYER] Mensagem recebida:', message);
-      setChatMessages((prev) => [...prev, message]);
-    };
-
-    const handlePlayerUpdate = (data: any) => {
-      console.log('👤 [PLAYER] Atualização de jogador:', data);
-      if (data.players) {
-        setPlayers(data.players);
-      }
-    };
-
-    addEventListener('game-frame', handleGameFrame);
-    addEventListener('chat-message', handleChatMessage);
-    addEventListener('player-update', handlePlayerUpdate);
-
-    return () => {
-      // Listeners são removidos automaticamente quando o componente desmontar
-    };
-  }, [streamActive, addEventListener]);
-
-  // ========== ENVIAR FRAME (HOST ONLY) ==========
-  const handleSendFrame = (frameData: FramePayload) => {
-    if (!isHost) {
-      console.warn('⚠️ [PLAYER] Apenas host pode enviar frames');
-      return;
+    if (stream && videoRef.current) {
+      videoRef.current.srcObject = stream;
+      videoRef.current.play().catch(error => {
+        console.error('[PLAYER] ❌ Erro ao reproduzir:', error);
+      });
     }
-
-    sendFrame(frameData);
-  };
-
-  // ========== ENVIAR MENSAGEM DE CHAT ==========
-  const handleSendMessage = () => {
-    if (!chatInput.trim()) return;
-
-    console.log('💬 [PLAYER] Enviando mensagem:', chatInput);
-    sendMessage(chatInput);
-    
-    setChatMessages((prev) => [...prev, {
-      sender: username || 'You',
-      message: chatInput
-    }]);
-    setChatInput('');
-  };
+  }, [stream]);
 
   return (
-    <div className="w-full h-full bg-gray-900 text-white flex flex-col">
+    <div className="fixed inset-0 bg-gray-900 flex flex-col z-50">
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-4 flex justify-between items-center">
-        <div className="flex items-center gap-4">
-          <h2 className="text-xl font-bold">Multiplayer Game</h2>
-          {isConnected ? (
-            <div className="flex items-center gap-2 text-green-400">
-              <div className="w-2 h-2 bg-green-400 rounded-full animate-pulse"></div>
-              Conectado
-            </div>
-          ) : (
-            <div className="flex items-center gap-2 text-red-400">
-              <Loader2 className="animate-spin" size={16} />
-              Conectando...
-            </div>
-          )}
-        </div>
-        <div className="flex items-center gap-4">
-          <div className="text-sm">
-            👥 {getPlayerCount()} jogadores
+      <div className="bg-gray-800 border-b border-gray-700 p-4 flex items-center justify-between">
+        <div className="flex items-center gap-3">
+          <Gamepad2 className="w-6 h-6 text-purple-400" />
+          <div>
+            <h1 className="text-white font-semibold">{gameTitle}</h1>
+            <p className="text-sm text-gray-400">Sessão Multiplayer</p>
           </div>
-          <div className="text-sm">
-            🎬 {frameCount} frames
-          </div>
-          <button
-            onClick={onClose}
-            className="hover:bg-white/20 p-2 rounded"
-          >
-            ✕
-          </button>
         </div>
+
+        <button
+          onClick={onClose}
+          className="p-2 hover:bg-gray-700 rounded-lg transition-colors"
+          title="Fechar"
+        >
+          <X className="w-5 h-5 text-gray-400" />
+        </button>
       </div>
 
       {/* Main Content */}
-      <div className="flex-1 flex gap-4 p-4 overflow-hidden">
-        {/* Game Canvas */}
-        <div className="flex-1 flex flex-col">
-          <div className="flex-1 bg-black rounded-lg overflow-hidden">
-            <canvas
-              ref={canvasRef}
-              className="w-full h-full"
-              style={{ display: 'block' }}
-            />
-          </div>
-          
-          {/* FPS Display */}
-          {streamActive && (
-            <div className="mt-2 text-sm text-gray-400">
-              📊 FPS: {fpsRef.current} | Frames: {frameCount}
-            </div>
-          )}
-        </div>
-
-        {/* Sidebar - Players & Chat */}
-        <div className="w-64 flex flex-col gap-4">
-          {/* Players List */}
-          <div className="bg-gray-800 rounded-lg p-4 flex-shrink-0">
-            <h3 className="font-bold mb-2 flex items-center gap-2">
-              <Users size={18} />
-              Jogadores ({getPlayerCount()})
-            </h3>
-            <div className="space-y-1 text-sm">
-              {players.map((player, idx) => (
-                <div key={idx} className="text-gray-300">
-                  • {player}
-                </div>
-              ))}
-            </div>
-          </div>
-
-          {/* Chat */}
-          <div className="flex-1 bg-gray-800 rounded-lg p-4 flex flex-col overflow-hidden">
-            <h3 className="font-bold mb-2">💬 Chat</h3>
-            
-            {/* Chat Messages */}
-            <div className="flex-1 overflow-auto mb-3 space-y-2 text-sm">
-              {chatMessages.length === 0 ? (
-                <p className="text-gray-500">Nenhuma mensagem ainda...</p>
-              ) : (
-                chatMessages.map((msg, idx) => (
-                  <div key={idx} className="text-gray-300">
-                    <span className="font-semibold text-purple-400">{msg.sender}:</span> {msg.message}
-                  </div>
-                ))
-              )}
-            </div>
-
-            {/* Chat Input */}
-            <div className="flex gap-2">
-              <input
-                type="text"
-                value={chatInput}
-                onChange={(e) => setChatInput(e.target.value)}
-                onKeyPress={(e) => e.key === 'Enter' && handleSendMessage()}
-                placeholder="Mensagem..."
-                className="flex-1 px-3 py-2 bg-gray-700 rounded text-white text-sm placeholder-gray-500"
-              />
+      <div className="flex-1 flex items-center justify-center bg-black relative">
+        {/* Sessão não encontrada */}
+        {sessionNotFound && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/90 z-10">
+            <div className="text-center max-w-md p-6">
+              <AlertCircle className="w-16 h-16 text-red-500 mx-auto mb-4" />
+              <h2 className="text-white text-xl font-semibold mb-2">
+                Sessão não encontrada
+              </h2>
+              <p className="text-gray-400 mb-4">
+                Verifique se o código da sessão está correto
+              </p>
               <button
-                onClick={handleSendMessage}
-                className="bg-purple-600 hover:bg-purple-700 p-2 rounded"
+                onClick={onClose}
+                className="px-6 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors text-white"
               >
-                <Send size={18} />
+                Fechar
               </button>
             </div>
           </div>
+        )}
 
-          {/* Audio Control */}
-          <div className="bg-gray-800 rounded-lg p-4">
-            <button className="w-full flex items-center justify-center gap-2 bg-purple-600 hover:bg-purple-700 py-2 rounded">
-              <Volume2 size={18} />
-              Som: ON
-            </button>
+        {/* Aguardando HOST */}
+        {!hostPeerId && !sessionNotFound && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-10">
+            <div className="text-center">
+              <Loader2 className="w-12 h-12 text-purple-500 animate-spin mx-auto mb-4" />
+              <p className="text-white">Aguardando HOST iniciar...</p>
+              <p className="text-gray-400 text-sm mt-2">Conectando ao PeerJS...</p>
+            </div>
           </div>
-        </div>
+        )}
+
+        {/* Conectando ao HOST */}
+        {hostPeerId && !isConnected && !connectionError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-10">
+            <div className="text-center">
+              <Loader2 className="w-12 h-12 text-purple-500 animate-spin mx-auto mb-4" />
+              <p className="text-white">Conectando ao HOST...</p>
+              <p className="text-gray-400 text-sm mt-2 font-mono">{hostPeerId}</p>
+            </div>
+          </div>
+        )}
+
+        {/* Erro de conexão */}
+        {connectionError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-10">
+            <div className="text-center max-w-md p-6">
+              <div className="text-red-500 text-6xl mb-4">❌</div>
+              <h2 className="text-white text-lg mb-2">Erro de conexão</h2>
+              <p className="text-gray-400 text-sm mb-4">{connectionError}</p>
+              <button
+                onClick={onClose}
+                className="px-6 py-2 bg-red-600 hover:bg-red-700 rounded-lg transition-colors"
+              >
+                Fechar
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* Aguardando stream */}
+        {isConnected && !stream && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-10">
+            <div className="text-center">
+              <Loader2 className="w-12 h-12 text-green-500 animate-spin mx-auto mb-4" />
+              <p className="text-white">✅ Conectado ao HOST</p>
+              <p className="text-gray-400 text-sm mt-2">Aguardando stream...</p>
+            </div>
+          </div>
+        )}
+
+        {/* Video Stream */}
+        <video
+          ref={videoRef}
+          autoPlay
+          playsInline
+          className="max-w-full max-h-full object-contain"
+          style={{ imageRendering: 'pixelated' }}
+        />
+
+        {/* Status Indicator */}
+        {isConnected && stream && (
+          <div className="absolute top-4 right-4 bg-black/70 backdrop-blur-sm rounded-lg px-4 py-2 flex items-center gap-2">
+            <Wifi className="w-4 h-4 text-green-400 animate-pulse" />
+            <span className="text-green-400 text-sm font-medium">🟢 Ao vivo</span>
+          </div>
+        )}
+
+        {/* Controls Hint */}
+        {isConnected && stream && (
+          <div className="absolute bottom-4 left-1/2 transform -translate-x-1/2 bg-black/70 backdrop-blur-sm rounded-lg px-6 py-3">
+            <p className="text-white text-sm text-center">
+              <Gamepad2 className="w-4 h-4 inline mr-2" />
+              Use as <strong>setas do teclado</strong> para controlar
+            </p>
+          </div>
+        )}
       </div>
 
-      {/* Status Bar */}
-      {!isConnected && (
-        <div className="bg-yellow-600/20 border-t border-yellow-600 p-3 text-yellow-200 text-sm">
-          ⚠️ Conectando ao servidor Colyseus...
+      {/* Debug Info */}
+      {process.env.NODE_ENV === 'development' && (
+        <div className="bg-gray-800 border-t border-gray-700 p-2 text-xs text-gray-400 font-mono">
+          <div className="flex gap-4">
+            <span>Player ID: {peerId || 'N/A'}</span>
+            <span>Host ID: {hostPeerId || 'N/A'}</span>
+            <span>Connected: {isConnected ? '✅' : '❌'}</span>
+            <span>Stream: {stream ? '✅' : '❌'}</span>
+          </div>
         </div>
       )}
     </div>
   );
 };
+
+export default MultiplayerPlayer;

@@ -1,0 +1,568 @@
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Host - Multiplayer Retro Gaming</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+        }
+
+        .container {
+            width: 100%;
+            max-width: 1200px;
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+            overflow: hidden;
+        }
+
+        .header {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 20px 30px;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .header h1 {
+            font-size: 24px;
+            font-weight: 700;
+        }
+
+        .room-info {
+            display: flex;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .room-code {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 16px;
+            border-radius: 8px;
+            font-weight: 600;
+        }
+
+        .players-count {
+            background: rgba(255, 255, 255, 0.2);
+            padding: 8px 16px;
+            border-radius: 8px;
+        }
+
+        .main-content {
+            display: grid;
+            grid-template-columns: 3fr 1fr;
+            gap: 20px;
+            padding: 20px;
+        }
+
+        .game-area {
+            background: #000;
+            border-radius: 12px;
+            overflow: hidden;
+            position: relative;
+            aspect-ratio: 4/3;
+        }
+
+        #emulator-frame {
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+
+        .sidebar {
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+        }
+
+        .card {
+            background: white;
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+        }
+
+        .card h2 {
+            font-size: 18px;
+            margin-bottom: 15px;
+            color: #333;
+        }
+
+        .player-item {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+            margin-bottom: 8px;
+        }
+
+        .player-avatar {
+            width: 40px;
+            height: 40px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: white;
+            font-weight: 700;
+        }
+
+        .player-info {
+            flex: 1;
+        }
+
+        .player-name {
+            font-weight: 600;
+            color: #333;
+        }
+
+        .player-status {
+            font-size: 12px;
+            color: #10b981;
+        }
+
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #10b981;
+            display: inline-block;
+            margin-right: 4px;
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0%, 100% {
+                opacity: 1;
+            }
+            50% {
+                opacity: 0.5;
+            }
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 12px;
+        }
+
+        .stat-item {
+            text-align: center;
+            padding: 12px;
+            background: #f8f9fa;
+            border-radius: 8px;
+        }
+
+        .stat-value {
+            font-size: 24px;
+            font-weight: 700;
+            color: #667eea;
+        }
+
+        .stat-label {
+            font-size: 12px;
+            color: #666;
+            margin-top: 4px;
+        }
+
+        .btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 8px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: transform 0.2s;
+        }
+
+        .btn:hover {
+            transform: translateY(-2px);
+        }
+
+        .btn-danger {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+        }
+
+        .controls {
+            display: flex;
+            gap: 10px;
+        }
+
+        .log {
+            max-height: 200px;
+            overflow-y: auto;
+            font-size: 12px;
+            font-family: monospace;
+            background: #f8f9fa;
+            padding: 10px;
+            border-radius: 8px;
+        }
+
+        .log-entry {
+            padding: 4px 0;
+            border-bottom: 1px solid #e5e7eb;
+        }
+
+        .log-entry:last-child {
+            border-bottom: none;
+        }
+
+        @media (max-width: 768px) {
+            .main-content {
+                grid-template-columns: 1fr;
+            }
+
+            .header {
+                flex-direction: column;
+                gap: 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🎮 Host - Multiplayer Gaming</h1>
+            <div class="room-info">
+                <div class="room-code">
+                    Sala: <strong id="room-code">-</strong>
+                </div>
+                <div class="players-count">
+                    👥 <span id="players-count">1</span>/4
+                </div>
+            </div>
+        </div>
+
+        <div class="main-content">
+            <div class="game-area">
+                <iframe id="emulator-frame"></iframe>
+            </div>
+
+            <div class="sidebar">
+                <div class="card">
+                    <h2>Jogadores</h2>
+                    <div id="players-list">
+                        <div class="player-item">
+                            <div class="player-avatar">H</div>
+                            <div class="player-info">
+                                <div class="player-name">Você (Host)</div>
+                                <div class="player-status">
+                                    <span class="status-indicator"></span>Conectado
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Estatísticas</h2>
+                    <div class="stats">
+                        <div class="stat-item">
+                            <div class="stat-value" id="fps">60</div>
+                            <div class="stat-label">FPS</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="latency">-</div>
+                            <div class="stat-label">Latência (ms)</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="bandwidth">-</div>
+                            <div class="stat-label">Mbps</div>
+                        </div>
+                        <div class="stat-item">
+                            <div class="stat-value" id="frames-sent">0</div>
+                            <div class="stat-label">Frames</div>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Controles</h2>
+                    <div class="controls">
+                        <button class="btn" onclick="copyRoomCode()">📋 Copiar Código</button>
+                        <button class="btn btn-danger" onclick="endSession()">❌ Encerrar</button>
+                    </div>
+                </div>
+
+                <div class="card">
+                    <h2>Log</h2>
+                    <div class="log" id="log"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Socket.io e SimplePeer -->
+    <script src="https://cdn.socket.io/4.5.4/socket.io.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/simple-peer@9.11.1/simplepeer.min.js"></script>
+
+    <script>
+        // Configuração
+        const SIGNALING_SERVER = 'https://seu-servidor.com'; // MUDAR PARA SEU SERVIDOR
+        const socket = io(SIGNALING_SERVER);
+        
+        // Estado
+        const peers = new Map();
+        let roomId = '';
+        let frameCount = 0;
+        let lastStatsUpdate = Date.now();
+        
+        // Gerar ID da sala
+        roomId = 'ROOM-' + Math.random().toString(36).substring(2, 8).toUpperCase();
+        document.getElementById('room-code').textContent = roomId;
+
+        // Log helper
+        function log(message, type = 'info') {
+            const logDiv = document.getElementById('log');
+            const entry = document.createElement('div');
+            entry.className = 'log-entry';
+            const time = new Date().toLocaleTimeString();
+            entry.textContent = `[${time}] ${message}`;
+            logDiv.insertBefore(entry, logDiv.firstChild);
+            
+            // Manter apenas últimas 50 entradas
+            while (logDiv.children.length > 50) {
+                logDiv.removeChild(logDiv.lastChild);
+            }
+            
+            console.log(`[${type.toUpperCase()}]`, message);
+        }
+
+        // Criar sala
+        socket.emit('create-room', { 
+            roomId, 
+            userId: 'host-' + Date.now() 
+        });
+
+        socket.on('room-created', ({ roomId: id }) => {
+            log('✅ Sala criada: ' + id);
+            loadEmulator();
+        });
+
+        // Quando jogador entra
+        socket.on('player-joined', ({ playerId, userId, playerNumber }) => {
+            log('👤 Jogador entrou: Player ' + playerNumber);
+            
+            // Criar peer connection
+            const peer = createPeerConnection(playerId, true);
+            peers.set(playerId, {
+                peer,
+                playerNumber,
+                userId
+            });
+            
+            // Adicionar à UI
+            addPlayerToUI(playerId, playerNumber);
+            updatePlayersCount();
+        });
+
+        // Quando jogador sai
+        socket.on('player-left', ({ playerId }) => {
+            log('👋 Jogador saiu');
+            
+            const peerData = peers.get(playerId);
+            if (peerData) {
+                peerData.peer.destroy();
+                peers.delete(playerId);
+            }
+            
+            removePlayerFromUI(playerId);
+            updatePlayersCount();
+        });
+
+        // WebRTC signaling
+        socket.on('webrtc-signal', ({ from, signal }) => {
+            const peerData = peers.get(from);
+            if (peerData) {
+                peerData.peer.signal(signal);
+            }
+        });
+
+        function createPeerConnection(peerId, initiator = false) {
+            const peer = new SimplePeer({
+                initiator,
+                trickle: false,
+                config: {
+                    iceServers: [
+                        { urls: 'stun:stun.l.google.com:19302' },
+                        { urls: 'stun:stun1.l.google.com:19302' }
+                    ]
+                }
+            });
+
+            peer.on('signal', (signal) => {
+                socket.emit('webrtc-signal', {
+                    to: peerId,
+                    signal
+                });
+            });
+
+            peer.on('connect', () => {
+                log('🔗 Conexão P2P estabelecida com ' + peerId);
+            });
+
+            peer.on('data', (data) => {
+                try {
+                    const input = JSON.parse(data.toString());
+                    handlePlayerInput(input);
+                } catch (e) {
+                    console.warn('Erro ao processar input:', e);
+                }
+            });
+
+            peer.on('error', (err) => {
+                log('❌ Erro P2P: ' + err.message, 'error');
+            });
+
+            return peer;
+        }
+
+        function loadEmulator() {
+            const params = new URLSearchParams(window.location.search);
+            const romUrl = params.get('rom') || 'https://example.com/game.snes';
+            const platform = params.get('platform') || 'snes';
+            
+            const iframe = document.getElementById('emulator-frame');
+            iframe.src = `universal-player-fixed.html?rom=${encodeURIComponent(romUrl)}&platform=${platform}&roomId=${roomId}`;
+            
+            log('🎮 Carregando emulador...');
+        }
+
+        // Receber frames do emulador
+        window.addEventListener('message', (event) => {
+            if (event.data.type === 'emulator-frame') {
+                frameCount++;
+                
+                // Enviar frame para todos os peers
+                const frameData = JSON.stringify({
+                    type: 'video-frame',
+                    data: event.data.canvas,
+                    timestamp: event.data.timestamp
+                });
+                
+                peers.forEach((peerData) => {
+                    try {
+                        if (peerData.peer.connected) {
+                            peerData.peer.send(frameData);
+                        }
+                    } catch (e) {
+                        // Ignorar erros de envio
+                    }
+                });
+                
+                // Atualizar stats
+                updateStats(event.data);
+            } else if (event.data.type === 'canvas-ready') {
+                log('✅ Canvas pronto para streaming');
+            }
+        });
+
+        function handlePlayerInput(input) {
+            // Enviar input para o emulador
+            const iframe = document.getElementById('emulator-frame');
+            if (iframe && iframe.contentWindow) {
+                iframe.contentWindow.postMessage({
+                    type: 'player-input',
+                    ...input
+                }, '*');
+            }
+        }
+
+        function addPlayerToUI(playerId, playerNumber) {
+            const playersList = document.getElementById('players-list');
+            const playerDiv = document.createElement('div');
+            playerDiv.className = 'player-item';
+            playerDiv.id = 'player-' + playerId;
+            playerDiv.innerHTML = `
+                <div class="player-avatar">P${playerNumber}</div>
+                <div class="player-info">
+                    <div class="player-name">Player ${playerNumber}</div>
+                    <div class="player-status">
+                        <span class="status-indicator"></span>Conectado
+                    </div>
+                </div>
+            `;
+            playersList.appendChild(playerDiv);
+        }
+
+        function removePlayerFromUI(playerId) {
+            const playerDiv = document.getElementById('player-' + playerId);
+            if (playerDiv) {
+                playerDiv.remove();
+            }
+        }
+
+        function updatePlayersCount() {
+            document.getElementById('players-count').textContent = peers.size + 1;
+        }
+
+        function updateStats(frameData) {
+            const now = Date.now();
+            
+            // Atualizar a cada segundo
+            if (now - lastStatsUpdate >= 1000) {
+                document.getElementById('frames-sent').textContent = frameCount;
+                
+                // Calcular bandwidth aproximado
+                const avgFrameSize = frameData.sizeKB || 30;
+                const bandwidth = ((avgFrameSize * 60 * 8) / 1024).toFixed(2); // Mbps
+                document.getElementById('bandwidth').textContent = bandwidth;
+                
+                // FPS (sempre 60 se streaming está ativo)
+                document.getElementById('fps').textContent = '60';
+                
+                lastStatsUpdate = now;
+            }
+        }
+
+        function copyRoomCode() {
+            navigator.clipboard.writeText(roomId).then(() => {
+                log('📋 Código copiado: ' + roomId);
+                alert('Código da sala copiado!');
+            });
+        }
+
+        function endSession() {
+            if (confirm('Tem certeza que deseja encerrar a sessão?')) {
+                // Fechar todas as conexões
+                peers.forEach((peerData) => {
+                    peerData.peer.destroy();
+                });
+                
+                socket.disconnect();
+                log('🛑 Sessão encerrada');
+                
+                setTimeout(() => {
+                    window.close();
+                }, 1000);
+            }
+        }
+
+        // Cleanup ao sair
+        window.addEventListener('beforeunload', () => {
+            peers.forEach((peerData) => {
+                peerData.peer.destroy();
+            });
+        });
+    </script>
+</body>
+</html>

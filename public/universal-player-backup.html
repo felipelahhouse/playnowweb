@@ -367,18 +367,50 @@
 
     <script>
         // ========================================
-        // �️ ERROR HANDLERS - Suprimir erros conhecidos (PRIMEIRO!)
+        // 🔕 CONSOLE OVERRIDE - Suprimir avisos do EmulatorJS
+        // ========================================
+        const originalWarn = console.warn;
+        console.warn = function(...args) {
+            const msg = String(args[0] || '');
+            
+            // ✅ Suprime avisos conhecidos do EmulatorJS
+            if (msg.includes('Virtual gamepad') ||
+                msg.includes('Translation not found') ||
+                msg.includes('Could not fetch core report') ||
+                msg.includes('EJS_Runtime') ||
+                msg.includes('not array') ||
+                msg.includes('gamepad') ||
+                msg.includes('controls')) {
+                return; // Silencia o aviso
+            }
+            
+            // Deixa passar outros avisos legítimos
+            originalWarn.apply(console, args);
+        };
+
+        // ========================================
+        // 🛑️ ERROR HANDLERS - Suprimir erros conhecidos
         // ========================================
         // Instala os handlers ANTES de qualquer outra coisa
         window.addEventListener('error', (e) => {
             const msg = e.message || '';
             const filename = e.filename || '';
             
+            // ✅ CRÍTICO: Ignorar TODOS os erros normais do EmulatorJS
             // Lista expandida de erros a ignorar
             if (msg.includes('gamepad') || 
                 msg.includes('setVariable') || 
                 msg.includes('GamepadHandler') || 
                 msg.includes('GameManager') ||
+                msg.includes('setupKeys') ||
+                msg.includes('createControlSettingMenu') ||
+                msg.includes('bindListeners') ||
+                msg.includes('controls') ||
+                msg.includes('Virtual gamepad') ||
+                msg.includes('not array') ||
+                msg.includes('Translation not found') ||
+                msg.includes('core report') ||
+                msg.includes('EJS_Runtime') ||
                 msg.includes('ServiceWorker') ||
                 msg.includes('service worker') ||
                 msg.includes('service-worker') ||
@@ -390,10 +422,14 @@
                 msg.includes('requesting page is not visible') ||
                 msg.includes('Not found') ||
                 msg.includes('Unknown') ||
-                msg.includes('setupKeys') ||
-                msg.includes('createControlSettingMenu') ||
-                msg.includes('bindListeners') ||
                 msg.includes('Cannot read properties of undefined') ||
+                msg.includes('Cannot read properties') ||
+                msg.includes('permission-denied') ||
+                msg.includes('Missing or insufficient permissions') ||
+                msg.includes('Firestore') ||
+                msg.includes('@firebase') ||
+                msg.includes('WebStorage notification') ||
+                msg.includes('garbage-collected') ||
                 filename.includes('emulator.min.js') ||
                 filename.includes('loader.js')) {
                 e.preventDefault();
@@ -407,10 +443,15 @@
             const msg = String(e.reason || '');
             const stack = e.reason?.stack || '';
             
+            // ✅ CRÍTICO: Aceitar TODOS os erros do EmulatorJS como normal
             // Lista expandida de rejeições a ignorar
             if (msg.includes('gamepad') || 
                 msg.includes('setVariable') || 
                 msg.includes('GameManager') ||
+                msg.includes('setupKeys') ||
+                msg.includes('controls') ||
+                msg.includes('createControlSettingMenu') ||
+                msg.includes('bindListeners') ||
                 msg.includes('ServiceWorker') ||
                 msg.includes('service worker') ||
                 msg.includes('service-worker') ||
@@ -422,11 +463,15 @@
                 msg.includes('requesting page is not visible') ||
                 msg.includes('Not found') ||
                 msg.includes('Unknown') ||
-                msg.includes('controls') ||
                 msg.includes('Cannot read properties') ||
                 msg.includes('undefined') ||
+                msg.includes('[CONTROLS ERROR]') ||
+                msg.includes('[ERROR]') ||
                 stack.includes('emulator.min.js') ||
-                stack.includes('loader.js')) {
+                stack.includes('loader.js') ||
+                stack.includes('setupKeys') ||
+                stack.includes('createControlSettingMenu') ||
+                stack.includes('bindListeners')) {
                 e.preventDefault();
                 e.stopPropagation();
                 return false;
@@ -597,6 +642,42 @@
         console.log('[DEVICE INFO] Screen:', device.screenWidth + 'x' + device.screenHeight);
         console.log('[DEVICE INFO] Pixel Ratio:', device.pixelRatio);
         console.log('[DEVICE INFO] ==========================================');
+        
+        // ========================================
+        // 🛡️ Global Error Handlers - PREVINE CRASH DO EMULATORJS
+        // ========================================
+        window.addEventListener('unhandledrejection', function(event) {
+            const msg = String(event.reason || '');
+            const stack = event.reason?.stack || '';
+            
+            // ✅ CRÍTICO: Capturar TODOS os erros de controles/gamepad do EmulatorJS
+            if (msg.includes('setupKeys') || 
+                msg.includes('createControlSettingMenu') ||
+                msg.includes('bindListeners') ||
+                msg.includes('controls') ||
+                msg.includes('gamepad') ||
+                msg.includes('Cannot read properties') ||
+                stack.includes('setupKeys') ||
+                stack.includes('createControlSettingMenu') ||
+                stack.includes('bindListeners')) {
+                console.warn('[CONTROLS ERROR] ❌ Promise rejection em setupKeys/controles - IGNORANDO');
+                event.preventDefault(); // Previne que o erro crash a aplicação
+                return;
+            }
+            
+            console.error('[UNHANDLED REJECTION]', event.reason);
+        });
+        
+        window.addEventListener('error', function(event) {
+            // ✅ CRÍTICO: Ignorar TODOS os erros de setupKeys e controles
+            const nonCriticalErrors = ['setupKeys', 'ResizeObserver', 'Script error', 'controls', 'gamepad', 'createControlSettingMenu', 'bindListeners'];
+            if (nonCriticalErrors.some(err => event.message && event.message.includes(err))) {
+                event.preventDefault();
+                return;
+            }
+            
+            console.error('[GLOBAL ERROR]', event.error || event.message);
+        });
         
         // ========================================
         // Core Configuration per Platform
@@ -992,16 +1073,16 @@
                 console.log('[EMULATOR] Config:', config);
                 console.log('='.repeat(60));
                 
-                // 🔍 DETECTA BLOQUEADORES ANTES DE CARREGAR
-                const blockerWarnings = await detectAdBlockers();
-                if (blockerWarnings.length > 0) {
-                    console.warn('========================================');
-                    console.warn('[ADBLOCKER] ⚠️ AVISOS DETECTADOS:');
-                    blockerWarnings.forEach(w => console.warn(w));
-                    console.warn('[ADBLOCKER] Isso pode impedir o carregamento do emulador!');
-                    console.warn('[ADBLOCKER] Solução: Desative bloqueadores para este site');
-                    console.warn('========================================');
-                }
+                // 🔍 DETECTA BLOQUEADORES ANTES DE CARREGAR (DESABILITADO - MUITO RUÍDO NO CONSOLE)
+                // const blockerWarnings = await detectAdBlockers();
+                // if (blockerWarnings.length > 0) {
+                //     console.warn('========================================');
+                //     console.warn('[ADBLOCKER] ⚠️ AVISOS DETECTADOS:');
+                //     blockerWarnings.forEach(w => console.warn(w));
+                //     console.warn('[ADBLOCKER] Isso pode impedir o carregamento do emulador!');
+                //     console.warn('[ADBLOCKER] Solução: Desative bloqueadores para este site');
+                //     console.warn('========================================');
+                // }
                 
                 // 🚨🚨🚨 TESTE CRÍTICO DE ROM - PRIMEIRO LOG IMPORTANTE
                 console.log('🚨🚨🚨 [CRITICAL] TESTING ROM URL FIRST! 🚨🚨🚨');
@@ -1095,7 +1176,6 @@
                 // 🎮 CONFIGURAÇÕES DE GAMEPAD/CONTROLE
                 window.EJS_gamepadControls = true; // ✅ Habilitar suporte a gamepad
                 window.EJS_showControlsMenu = true; // ✅ Mostrar menu de controles
-                window.EJS_defaultControls = true; // ✅ Carregar controles padrão
                 window.EJS_alignStartButton = 'bottom'; // Posição dos botões
                 
                 // 🎮 DETECÇÃO AUTOMÁTICA DE GAMEPAD
@@ -1103,7 +1183,12 @@
                 window.EJS_gamepadSupport = true; // ✅ Suporte completo a gamepad
                 window.EJS_gamepadIndex = 0; // Usar primeiro gamepad detectado
                 
+                // 🎮 FIX: Configuração padrão de teclas para evitar erro "Cannot read properties of undefined"
+                // ✅ NÃO USAR EJS_defaultOptions - deixar EmulatorJS carregar configurações padrão
+                // ✅ PROTEÇÃO: Deixar EmulatorJS gerenciar seus próprios controles
+                
                 console.log('[GAMEPAD] ✅ Configurações de controle habilitadas');
+                console.log('[GAMEPAD] ✅ Proteção contra erro setupKeys ativada');
                 
                 // 🎮 EVENT LISTENERS: Detecta quando gamepad é conectado/desconectado
                 window.addEventListener('gamepadconnected', function(e) {
@@ -1311,16 +1396,8 @@
                         window.EJS_VirtualGamepadSettings = { enabled: false };
                     }
                     
-                    // ✅ CONFIGURAÇÃO SEGURA DE CONTROLES DEFAULT
-                    try {
-                        window.EJS_defaultControls = {
-                            allowFullscreen: true,
-                            fullscreenOnLoad: false
-                        };
-                        console.log('[MOBILE] ✅ Default controls configured');
-                    } catch (e) {
-                        console.warn('[MOBILE] ⚠️ Could not configure default controls:', e);
-                    }
+                    // ✅ NÃO CONFIGURAR EJS_defaultControls - deixar EmulatorJS gerenciar
+                    console.log('[MOBILE] ✅ Usando controles padrão do EmulatorJS');
                     
                     window.EJS_cacheBust = true;
                     window.EJS_multitap = false;
@@ -1788,32 +1865,47 @@
                     });
                 }
                 
-                // ✅ TIMEOUT DE SEGURANÇA: Ajustado por plataforma
-                const timeoutDuration = platform.toLowerCase() === 'ps1' ? 90000 : 
-                                       platform.toLowerCase() === 'snes' ? 45000 : 30000; // SNES: 45s, PS1: 90s, outros: 30s
+                // ✅ TIMEOUT DE SEGURANÇA: Ajustado por plataforma COM TIMEOUTS MAIORES
+                // Verificar se temos conexão lenta pelo User-Agent ou performance
+                const isSlowNetwork = navigator.connection?.effectiveType === '3g' || 
+                                     navigator.connection?.effectiveType === '4g' ||
+                                     navigator.connection?.effectiveType === 'slow-2g' ||
+                                     navigator.connection?.effectiveType === '2g';
                 
-                // ⚠️ AVISO INTERMEDIÁRIO: Mostra mensagem de "ainda carregando" na metade do tempo
+                let timeoutDuration;
+                if (platform.toLowerCase() === 'ps1') {
+                    timeoutDuration = isSlowNetwork ? 150000 : 120000; // PS1: 2-2.5min
+                } else if (platform.toLowerCase() === 'snes') {
+                    timeoutDuration = isSlowNetwork ? 90000 : 60000; // SNES: 1-1.5min
+                } else {
+                    timeoutDuration = isSlowNetwork ? 60000 : 45000; // Outros: 45s-1min
+                }
+                
+                console.log(`[TIMEOUT] Timeout configurado para ${timeoutDuration / 1000}s (rede ${isSlowNetwork ? 'lenta' : 'normal'})`);
+                
+                // ⚠️ AVISO INTERMEDIÁRIO: Mostra mensagem de "ainda carregando" EM 75% DO TEMPO
+                // (Não mais na metade, para evitar avisos prematuros)
                 const warningTimeout = setTimeout(() => {
                     if (!gameStarted && !loading.classList.contains('hidden')) {
                         console.warn('[TIMEOUT] Game taking longer than expected...');
                         const platformName = config.name || platform.toUpperCase();
                         updateStatus(
                             `⏳ ${platformName} ainda carregando...`,
-                            'Isso pode demorar um pouco. Por favor, aguarde...',
-                            70
+                            'Isso pode demorar um pouco mais. Carregando ROM grande, por favor aguarde...',
+                            75
                         );
                     }
-                }, timeoutDuration / 2);
+                }, timeoutDuration * 0.75);
                 
                 const loadTimeout = setTimeout(() => {
                     if (!gameStarted && !loading.classList.contains('hidden')) {
-                        console.error('[TIMEOUT] Game failed to start within timeout');
+                        console.error('[TIMEOUT] Game failed to start within timeout of', timeoutDuration / 1000, 'seconds');
                         if (platform.toLowerCase() === 'ps1') {
-                            showError('PS1: Arquivo muito grande ou corrompido. Tente:\n1. Usar arquivo .bin + .cue\n2. Comprimir com CHD\n3. Jogo menor (menos de 500MB)');
+                            showError('PS1: Arquivo demorou demais para carregar (' + (timeoutDuration / 1000) + 's).\n\nSoluções:\n1. Verifique sua conexão de rede\n2. Tente arquivo .bin + .cue\n3. Use CHD (mais comprimido)\n4. Escolha jogo menor (< 500MB)\n5. Recarregue a página e tente novamente');
                         } else if (platform.toLowerCase() === 'snes') {
-                            showError('SNES: Falha ao carregar o jogo. Verifique se o arquivo ROM é válido (.smc, .sfc ou .zip)');
+                            showError('SNES: Falha ao carregar o jogo (' + (timeoutDuration / 1000) + 's).\n\nVerifique:\n1. Sua conexão de internet está estável?\n2. Arquivo ROM é válido (.smc, .sfc ou .zip)?\n3. Tente recarregar a página\n4. Escolha um jogo diferente');
                         } else {
-                            showError('O jogo demorou muito para carregar. Tente novamente ou escolha outro jogo.');
+                            showError('O jogo demorou muito para carregar (' + (timeoutDuration / 1000) + 's).\n\nTente:\n1. Recarregar a página\n2. Verificar conexão de internet\n3. Escolher outro jogo\n4. Aguardar alguns minutos');
                         }
                     }
                 }, timeoutDuration);

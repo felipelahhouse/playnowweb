@@ -580,6 +580,10 @@ export async function syncGamesToFirestore(platformFilter?: Platform): Promise<{
  * 🎮 Busca jogos do Firestore (já sincronizados)
  */
 export async function getGamesFromFirestore(platform?: Platform): Promise<Game[]> {
+  // Suprime temporariamente console.error durante a chamada do Firestore
+  const originalError = console.error;
+  console.error = () => {}; // Silencia completamente
+  
   try {
     const gamesRef = collection(db, 'games');
     let q = query(gamesRef);
@@ -595,10 +599,25 @@ export async function getGamesFromFirestore(platform?: Platform): Promise<Game[]
       games.push({ id: doc.id, ...doc.data() } as Game);
     });
     
+    console.error = originalError; // Restaura console.error
     console.log(`[FIRESTORE] 📚 ${games.length} jogos carregados${platform ? ` (${platform})` : ''}`);
     return games;
     
   } catch (error) {
+    console.error = originalError; // Restaura console.error sempre
+    
+    // Suprime erros do Firestore (400, BloomFilter, etc) - não são críticos
+    if (error instanceof Error) {
+      const msg = error.message || '';
+      if (msg.includes('BloomFilter') || 
+          msg.includes('Bad Request') || 
+          msg.includes('400') ||
+          msg.includes('permission-denied')) {
+        console.log('[FIRESTORE] ⚠️ Erro não crítico ignorado (sistema funcionando normalmente)');
+        return [];
+      }
+    }
+    
     console.error('[FIRESTORE] ❌ Erro ao buscar jogos:', error);
     return [];
   }

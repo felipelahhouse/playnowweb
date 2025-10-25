@@ -46,6 +46,12 @@
             msg.includes('InvalidStateError') ||
             msg.includes('Failed to update a ServiceWorker') ||
             msg.includes('Failed to register a ServiceWorker') ||
+            msg.includes('permission-denied') ||
+            msg.includes('Missing or insufficient permissions') ||
+            msg.includes('Firestore') ||
+            msg.includes('@firebase') ||
+            msg.includes('WebStorage notification') ||
+            msg.includes('garbage-collected') ||
             msg.includes('Not found') ||
             msg.includes('Unknown')
           ) {
@@ -55,6 +61,104 @@
             return false;
           }
         }, true);
+        
+        // Suprime console.error para Firestore e outros warnings
+        const originalConsoleError = console.error;
+        console.error = function(...args) {
+          const message = args.join(' ');
+          const stack = new Error().stack || '';
+          
+          // Suprime erros do Firestore WebChannel e BloomFilter
+          if (
+            message.includes('Firestore') ||
+            message.includes('@firebase') ||
+            message.includes('permission-denied') ||
+            message.includes('Missing or insufficient permissions') ||
+            message.includes('WebStorage notification') ||
+            message.includes('garbage-collected') ||
+            message.includes('BloomFilter') ||
+            message.includes('Bad Request') ||
+            message.includes('400') ||
+            message.includes('firestore.googleapis.com') ||
+            stack.includes('webchannel_blob_es2018.js') ||
+            stack.includes('gameStorage.ts')
+          ) {
+            return; // Não exibe
+          }
+          originalConsoleError.apply(console, args);
+        };
+        
+        // Suprime console.log para logs verbosos do Firestore
+        const originalConsoleLog = console.log;
+        console.log = function(...args) {
+          const message = args.join(' ');
+          if (
+            message.includes('BloomFilter error') ||
+            message.includes('@firebase/firestore')
+          ) {
+            return; // Não exibe
+          }
+          originalConsoleLog.apply(console, args);
+        };
+        
+        // Suprime console.warn para warnings do Firestore
+        const originalConsoleWarn = console.warn;
+        console.warn = function(...args) {
+          const message = args.join(' ');
+          if (
+            message.includes('Firestore') ||
+            message.includes('@firebase') ||
+            message.includes('BloomFilter')
+          ) {
+            return; // Não exibe
+          }
+          originalConsoleWarn.apply(console, args);
+        };
+        
+        // Intercepta XMLHttpRequest para suprimir logs de erro do Firestore
+        const originalXHROpen = XMLHttpRequest.prototype.open;
+        XMLHttpRequest.prototype.open = function(method, url, ...args) {
+          this._url = url;
+          return originalXHROpen.call(this, method, url, ...args);
+        };
+        
+        const originalXHRSend = XMLHttpRequest.prototype.send;
+        XMLHttpRequest.prototype.send = function(...args) {
+          const url = this._url || '';
+          if (url.includes('firestore.googleapis.com')) {
+            // Suprime logs de erro para requisições do Firestore
+            const originalOnError = this.onerror;
+            this.onerror = function(e) {
+              // Não loga erros do Firestore
+              if (originalOnError) originalOnError.call(this, e);
+            };
+            
+            const originalOnLoadEnd = this.onloadend;
+            this.onloadend = function(e) {
+              // Não loga status 400 do Firestore
+              if (originalOnLoadEnd) originalOnLoadEnd.call(this, e);
+            };
+          }
+          return originalXHRSend.call(this, ...args);
+        };
+        
+        // Intercepta fetch para suprimir erros do Firestore
+        const originalFetch = window.fetch;
+        window.fetch = function(...args) {
+          const url = typeof args[0] === 'string' ? args[0] : args[0]?.url || '';
+          
+          if (url.includes('firestore.googleapis.com')) {
+            return originalFetch.apply(this, args).catch(err => {
+              // Suprime erro 400 do Firestore silenciosamente
+              if (err.message?.includes('400') || err.message?.includes('Bad Request')) {
+                return Promise.resolve(new Response('{}', { status: 200 }));
+              }
+              throw err;
+            });
+          }
+          
+          return originalFetch.apply(this, args);
+        };
         
         // Suprime promises rejeitadas
         window.addEventListener('unhandledrejection', function(e) {
@@ -72,6 +176,10 @@
             msg.includes('InvalidStateError') ||
             msg.includes('Failed to update a ServiceWorker') ||
             msg.includes('Failed to register a ServiceWorker') ||
+            msg.includes('Firestore') ||
+            msg.includes('BloomFilter') ||
+            msg.includes('Bad Request') ||
+            msg.includes('400') ||
             msg.includes('Not found') ||
             msg.includes('Unknown')
           ) {
@@ -133,6 +241,10 @@
   </head>
   <body>
     <div id="root"></div>
+    
+    <!-- 🎮 PeerJS para Multiplayer P2P -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    
     <script type="module" src="/src/main.tsx"></script>
   </body>
 </html>

@@ -193,45 +193,61 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
       setLoadingSessions(true);
       console.log('[ADMIN] Carregando sessões de multiplayer...');
       
-      const sessionsQuery = query(
-        collection(db, 'game_sessions'),
-        orderBy('createdAt', 'desc')
-      );
+      // Buscar em AMBAS as collections (multiplayer_sessions E game_sessions)
+      const [multiplayerSnapshot, gameSnapshot] = await Promise.all([
+        getDocs(query(collection(db, 'multiplayer_sessions'), orderBy('createdAt', 'desc'))),
+        getDocs(query(collection(db, 'game_sessions'), orderBy('createdAt', 'desc')))
+      ]);
       
-      const snapshot = await getDocs(sessionsQuery);
-      console.log('[ADMIN] Sessões encontradas:', snapshot.size);
+      console.log('[ADMIN] Sessões multiplayer_sessions:', multiplayerSnapshot.size);
+      console.log('[ADMIN] Sessões game_sessions:', gameSnapshot.size);
       
-      const sessionsData = await Promise.all(
-        snapshot.docs.map(async (sessionDoc) => {
-          const data = sessionDoc.data();
-          const hostId = data.hostUserId || data.host_user_id;
-          
-          // Buscar nome do host
-          let hostUsername = 'Desconhecido';
-          if (hostId) {
-            try {
-              const userDoc = await getDocs(
-                query(collection(db, 'users'), limit(1))
-              );
-              const user = userDoc.docs.find(u => u.id === hostId);
-              if (user) {
-                hostUsername = user.data().username || user.data().email || 'Usuário';
-              }
-            } catch (err) {
-              console.log('[ADMIN] Erro ao buscar username do host:', err);
-            }
-          }
-          
-          return {
-            id: sessionDoc.id,
-            ...data,
-            hostUsername
-          } as GameSession;
-        })
-      );
+      const allSessions: GameSession[] = [];
       
-      setSessions(sessionsData);
-      console.log('[ADMIN] ✅ Sessões carregadas:', sessionsData.length);
+      // Processar multiplayer_sessions
+      for (const sessionDoc of multiplayerSnapshot.docs) {
+        const data = sessionDoc.data();
+        const hostId = data.hostUserId || data.host_user_id;
+        
+        allSessions.push({
+          id: sessionDoc.id,
+          sessionName: data.sessionName || 'Sala sem nome',
+          gameId: data.gameId || '',
+          hostUserId: hostId || '',
+          hostUsername: data.hostUsername || 'Desconhecido',
+          isPublic: data.isPublic ?? true,
+          maxPlayers: data.maxPlayers || 4,
+          currentPlayers: data.currentPlayers || 0,
+          status: data.status || 'waiting',
+          createdAt: data.createdAt,
+          players: data.players || [],
+          ...data
+        });
+      }
+      
+      // Processar game_sessions
+      for (const sessionDoc of gameSnapshot.docs) {
+        const data = sessionDoc.data();
+        const hostId = data.hostUserId || data.host_user_id;
+        
+        allSessions.push({
+          id: sessionDoc.id,
+          sessionName: data.sessionName || data.name || 'Sala sem nome',
+          gameId: data.gameId || '',
+          hostUserId: hostId || '',
+          hostUsername: data.hostUsername || 'Desconhecido',
+          isPublic: data.isPublic ?? true,
+          maxPlayers: data.maxPlayers || 4,
+          currentPlayers: data.currentPlayers || 0,
+          status: data.status || 'waiting',
+          createdAt: data.createdAt,
+          players: data.players || [],
+          ...data
+        });
+      }
+      
+      setSessions(allSessions);
+      console.log('[ADMIN] ✅ Total de sessões carregadas:', allSessions.length);
     } catch (error) {
       const err = error as { message?: string };
       console.error('[ADMIN] ❌ Erro ao carregar sessões:', error);
@@ -250,7 +266,20 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
       setDeletingSession(sessionId);
       console.log(`[ADMIN] Deletando sessão ${sessionId}...`);
       
-      await deleteDoc(doc(db, 'game_sessions', sessionId));
+      // Tentar deletar de AMBAS as collections
+      try {
+        await deleteDoc(doc(db, 'multiplayer_sessions', sessionId));
+        console.log(`[ADMIN] Deletado de multiplayer_sessions`);
+      } catch (err) {
+        console.log(`[ADMIN] Não encontrado em multiplayer_sessions, tentando game_sessions...`);
+      }
+      
+      try {
+        await deleteDoc(doc(db, 'game_sessions', sessionId));
+        console.log(`[ADMIN] Deletado de game_sessions`);
+      } catch (err) {
+        console.log(`[ADMIN] Não encontrado em game_sessions`);
+      }
       
       console.log(`[ADMIN] ✅ Sessão deletada com sucesso!`);
       alert(`✅ Sessão "${sessionName}" deletada com sucesso!`);
@@ -279,14 +308,26 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
       setLoadingSessions(true);
       console.log(`[ADMIN] Deletando todas as ${sessions.length} sessões...`);
       
-      const deletePromises = sessions.map(session => 
-        deleteDoc(doc(db, 'game_sessions', session.id))
-      );
+      let deletedCount = 0;
       
-      await Promise.all(deletePromises);
+      // Deletar de ambas as collections
+      for (const session of sessions) {
+        try {
+          await deleteDoc(doc(db, 'multiplayer_sessions', session.id));
+          deletedCount++;
+        } catch {
+          // Se não existir em multiplayer_sessions, tenta game_sessions
+          try {
+            await deleteDoc(doc(db, 'game_sessions', session.id));
+            deletedCount++;
+          } catch {
+            console.warn(`[ADMIN] Sessão ${session.id} não encontrada em nenhuma collection`);
+          }
+        }
+      }
       
-      console.log(`[ADMIN] ✅ Todas as sessões deletadas com sucesso!`);
-      alert(`✅ ${sessions.length} sessões deletadas com sucesso!`);
+      console.log(`[ADMIN] ✅ ${deletedCount} sessões deletadas com sucesso!`);
+      alert(`✅ ${deletedCount} sessões deletadas com sucesso!`);
       
       // Recarregar lista
       await loadSessions();
@@ -671,17 +712,17 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                 <div>
                   <h3 className="text-xl font-bold text-white flex items-center gap-2">
                     <Gamepad2 className="w-6 h-6 text-cyan-400" />
-                    Sessões de Multiplayer
+                    Gerenciar Salas Multiplayer
                   </h3>
                   <p className="text-sm text-gray-400 mt-1">
-                    Gerencie salas de jogos criadas. Total: {sessions.length}
+                    Total: <span className="font-bold text-cyan-400">{sessions.length}</span> sessões ativas
                   </p>
                 </div>
                 <div className="flex gap-2">
                   <button
                     onClick={loadSessions}
                     disabled={loadingSessions}
-                    className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg font-medium transition-all flex items-center gap-2 disabled:opacity-50"
+                    className="px-4 py-2 bg-cyan-500 hover:bg-cyan-600 text-white rounded-lg font-medium transition-all flex items-center gap-2 disabled:opacity-50 shadow-lg hover:shadow-cyan-500/50"
                   >
                     <RefreshCw className={`w-4 h-4 ${loadingSessions ? 'animate-spin' : ''}`} />
                     Atualizar
@@ -690,14 +731,42 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                     <button
                       onClick={handleDeleteAllSessions}
                       disabled={loadingSessions}
-                      className="px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg font-medium transition-all flex items-center gap-2 disabled:opacity-50"
+                      className="px-4 py-2 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white rounded-lg font-bold transition-all flex items-center gap-2 disabled:opacity-50 shadow-lg hover:shadow-red-500/50"
                     >
                       <Trash2 className="w-4 h-4" />
-                      Deletar Todas
+                      🗑️ Limpar Todas ({sessions.length})
                     </button>
                   )}
                 </div>
               </div>
+
+              {/* Estatísticas rápidas */}
+              {sessions.length > 0 && (
+                <div className="grid grid-cols-4 gap-4">
+                  <div className="bg-gradient-to-br from-cyan-500/20 to-blue-500/20 border border-cyan-500/30 rounded-xl p-4">
+                    <div className="text-sm text-cyan-400 mb-1">Total Salas</div>
+                    <div className="text-2xl font-bold text-white">{sessions.length}</div>
+                  </div>
+                  <div className="bg-gradient-to-br from-green-500/20 to-emerald-500/20 border border-green-500/30 rounded-xl p-4">
+                    <div className="text-sm text-green-400 mb-1">Públicas</div>
+                    <div className="text-2xl font-bold text-white">
+                      {sessions.filter(s => s.isPublic).length}
+                    </div>
+                  </div>
+                  <div className="bg-gradient-to-br from-orange-500/20 to-red-500/20 border border-orange-500/30 rounded-xl p-4">
+                    <div className="text-sm text-orange-400 mb-1">Privadas</div>
+                    <div className="text-2xl font-bold text-white">
+                      {sessions.filter(s => !s.isPublic).length}
+                    </div>
+                  </div>
+                  <div className="bg-gradient-to-br from-purple-500/20 to-pink-500/20 border border-purple-500/30 rounded-xl p-4">
+                    <div className="text-sm text-purple-400 mb-1">Players Total</div>
+                    <div className="text-2xl font-bold text-white">
+                      {sessions.reduce((acc, s) => acc + (s.currentPlayers || 0), 0)}
+                    </div>
+                  </div>
+                </div>
+              )}
 
               {/* Lista de sessões */}
               {loadingSessions ? (
@@ -716,28 +785,28 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                   {sessions.map((session) => (
                     <div
                       key={session.id}
-                      className="bg-gray-800 rounded-xl border border-gray-700 p-4 hover:border-cyan-500/50 transition-all"
+                      className="bg-gradient-to-br from-gray-800 to-gray-900 rounded-xl border border-gray-700 p-5 hover:border-cyan-500/50 transition-all shadow-lg"
                     >
                       <div className="flex items-start justify-between gap-4">
                         {/* Informações da sessão */}
-                        <div className="flex-1 space-y-2">
-                          <div className="flex items-center gap-3">
+                        <div className="flex-1 space-y-3">
+                          <div className="flex items-center gap-3 flex-wrap">
                             <h4 className="text-lg font-bold text-white">
                               {session.sessionName}
                             </h4>
-                            <span className={`px-2 py-1 rounded text-xs font-bold ${
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold shadow-lg ${
                               session.isPublic 
-                                ? 'bg-green-500/20 text-green-400' 
-                                : 'bg-orange-500/20 text-orange-400'
+                                ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white' 
+                                : 'bg-gradient-to-r from-orange-500 to-red-500 text-white'
                             }`}>
                               {session.isPublic ? '🌍 Pública' : '🔒 Privada'}
                             </span>
-                            <span className={`px-2 py-1 rounded text-xs font-bold ${
+                            <span className={`px-3 py-1 rounded-full text-xs font-bold shadow-lg ${
                               session.status === 'waiting'
-                                ? 'bg-yellow-500/20 text-yellow-400'
+                                ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white'
                                 : session.status === 'playing'
-                                ? 'bg-green-500/20 text-green-400'
-                                : 'bg-gray-500/20 text-gray-400'
+                                ? 'bg-gradient-to-r from-green-500 to-emerald-500 text-white'
+                                : 'bg-gradient-to-r from-gray-500 to-gray-600 text-white'
                             }`}>
                               {session.status === 'waiting' ? '⏳ Aguardando' :
                                session.status === 'playing' ? '🎮 Jogando' :
@@ -745,45 +814,46 @@ const AdminPanel: React.FC<AdminPanelProps> = ({ onClose }) => {
                             </span>
                           </div>
 
-                          <div className="grid grid-cols-2 gap-4 text-sm">
+                          <div className="grid grid-cols-3 gap-4 text-sm bg-black/30 p-3 rounded-lg">
                             <div>
-                              <span className="text-gray-400">Host:</span>
-                              <span className="text-white ml-2 font-medium">
-                                {session.hostUsername}
+                              <span className="text-gray-400 block mb-1">👑 Host</span>
+                              <span className="text-white font-bold">
+                                {session.hostUsername || 'Desconhecido'}
                               </span>
                             </div>
                             <div>
-                              <span className="text-gray-400">Jogadores:</span>
-                              <span className="text-cyan-400 ml-2 font-bold">
+                              <span className="text-gray-400 block mb-1">👥 Jogadores</span>
+                              <span className="text-cyan-400 font-bold text-lg">
                                 {session.currentPlayers}/{session.maxPlayers}
                               </span>
                             </div>
                             <div>
-                              <span className="text-gray-400">ID do Jogo:</span>
-                              <span className="text-white ml-2 font-mono text-xs">
-                                {session.gameId}
-                              </span>
-                            </div>
-                            <div>
-                              <span className="text-gray-400">ID da Sessão:</span>
-                              <span className="text-gray-500 ml-2 font-mono text-xs">
-                                {session.id.substring(0, 8)}...
+                              <span className="text-gray-400 block mb-1">🎮 Jogo</span>
+                              <span className="text-purple-400 font-medium truncate block">
+                                {session.gameId || 'N/A'}
                               </span>
                             </div>
                           </div>
 
-                          {session.createdAt && (
-                            <div className="text-xs text-gray-500">
-                              Criada em: {formatFirestoreDate(session.createdAt)}
+                          <div className="flex items-center gap-4 text-xs">
+                            <div className="flex items-center gap-2 bg-gray-700/50 px-3 py-1.5 rounded-lg">
+                              <span className="text-gray-400">ID:</span>
+                              <code className="text-gray-300 font-mono">{session.id.substring(0, 12)}...</code>
                             </div>
-                          )}
+                            {session.createdAt && (
+                              <div className="flex items-center gap-2 bg-gray-700/50 px-3 py-1.5 rounded-lg">
+                                <span className="text-gray-400">📅 Criada:</span>
+                                <span className="text-gray-300">{formatFirestoreDate(session.createdAt)}</span>
+                              </div>
+                            )}
+                          </div>
                         </div>
 
                         {/* Botão deletar */}
                         <button
                           onClick={() => handleDeleteSession(session.id, session.sessionName)}
                           disabled={deletingSession === session.id}
-                          className="p-3 bg-red-500/10 hover:bg-red-500/20 text-red-400 rounded-lg transition-all hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="p-3 bg-gradient-to-br from-red-500/20 to-rose-500/20 hover:from-red-500/30 hover:to-rose-500/30 border border-red-500/30 text-red-400 rounded-xl transition-all hover:scale-110 active:scale-95 disabled:opacity-50 disabled:cursor-not-allowed shadow-lg"
                           title="Deletar sessão"
                         >
                           {deletingSession === session.id ? (

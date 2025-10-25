@@ -114,23 +114,46 @@ const GamePlayer: React.FC<GamePlayerProps> = ({ gameTitle, romPath, onClose }) 
         romUrlRef.current = null;
       }
 
-      // 🔥 NOVO: Busca URL de download do Firebase Storage
-      setStatus('Conectando ao Firebase Storage...');
       let finalRomPath = romPath;
       
-      // Se romPath é um caminho do Storage (ex: roms/snes/game.smc), busca a URL
-      if (romPath.startsWith('roms/') || romPath.startsWith('gs://')) {
-        console.log('[GAME PLAYER] Buscando URL de download do Storage:', romPath);
+      // 🟢 PRIMEIRO: Tenta carregar do público local (ROMs copiadas para public/roms)
+      if (romPath.startsWith('roms/') || romPath.startsWith('/roms/')) {
+        console.log('[GAME PLAYER] 📦 Tentando carregar ROM local:', romPath);
         
-        const { ref: storageRef, getDownloadURL } = await import('firebase/storage');
-        const { storage } = await import('../../lib/firebase');
+        // Adiciona / se necessário para garantir caminho absoluto
+        const localPath = romPath.startsWith('/') ? romPath : `/${romPath}`;
         
-        // Remove prefixo gs:// se existir
-        const cleanPath = romPath.replace(/^gs:\/\/[^/]+\//, '');
-        const romRef = storageRef(storage, cleanPath);
-        finalRomPath = await getDownloadURL(romRef);
-        
-        console.log('[GAME PLAYER] ✅ URL de download obtida');
+        try {
+          // Faz um HEAD request para verificar se o arquivo existe localmente
+          const headResponse = await fetch(localPath, { method: 'HEAD' });
+          if (headResponse.ok) {
+            console.log('[GAME PLAYER] ✅ ROM local encontrada! Usando arquivo local');
+            finalRomPath = localPath;
+            setStatus('Baixando ROM do jogo...');
+          } else {
+            throw new Error('Arquivo não encontrado localmente');
+          }
+        } catch (localError) {
+          // 🟠 Se não encontrar localmente, tenta Firebase Storage
+          console.log('[GAME PLAYER] ⚠️ ROM não encontrada localmente, tentando Firebase Storage...');
+          setStatus('Conectando ao Firebase Storage...');
+          
+          try {
+            const { ref: storageRef, getDownloadURL } = await import('firebase/storage');
+            const { storage } = await import('../../lib/firebase');
+            
+            // Remove prefixo gs:// se existir
+            const cleanPath = romPath.replace(/^gs:\/\/[^/]+\//, '').replace(/^\//, '');
+            const romRef = storageRef(storage, cleanPath);
+            finalRomPath = await getDownloadURL(romRef);
+            
+            console.log('[GAME PLAYER] ✅ URL de download obtida do Firebase Storage');
+            setStatus('Baixando ROM do jogo...');
+          } catch (firebaseError) {
+            console.error('[GAME PLAYER] ❌ Erro ao buscar do Firebase:', firebaseError);
+            throw new Error(`Não foi possível carregar a ROM (local e Firebase falharam)`);
+          }
+        }
       }
 
       // ✅ MOBILE: Tenta usar versão descompactada primeiro

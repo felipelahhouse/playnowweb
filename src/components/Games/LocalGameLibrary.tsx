@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react';
+import React, { useEffect, useMemo, useState, memo } from 'react';
 import { Search, Filter, Star, Users, Calendar, Gamepad2, Radio, Globe } from 'lucide-react';
 import type { Game, Platform } from '../../types';
 import GamePlayer from './GamePlayer';
 import PlatformSelector from './PlatformSelector';
 import { useRealTimePlayers } from '../../hooks/useRealTimePlayers';
+import LazyImage from '../Common/LazyImage';
 
 interface LocalGameLibraryProps {
   onStartStream?: (game: Game) => void;
@@ -212,14 +213,14 @@ const LocalGameLibrary: React.FC<LocalGameLibraryProps> = ({ onStartStream, onCr
                       </div>
                     )}
 
-                    {/* Imagem do jogo */}
+                    {/* Imagem do jogo com lazy loading */}
                     <div className="relative aspect-[3/4] overflow-hidden bg-gradient-to-br from-cyan-900/30 to-purple-900/30">
                       {game.cover ? (
-                        <img 
+                        <LazyImage 
                           src={game.cover} 
                           alt={game.title} 
                           className="w-full h-full object-cover transform group-hover:scale-110 transition-transform duration-500" 
-                          loading="lazy"
+                          fallback="/placeholder-game.png"
                         />
                       ) : (
                         <div className="absolute inset-0 flex items-center justify-center">
