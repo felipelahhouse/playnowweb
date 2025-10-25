@@ -56,30 +56,41 @@ app.use((req, res, next) => {
   // Previne MIME type sniffing
   res.setHeader('X-Content-Type-Options', 'nosniff');
 
-  // URLs do Socket.IO permitidas
+  // URLs do WebRTC/PeerJS e Socket.IO permitidas
   const socketUrls = [
+    // 🌐 Render.com - PeerJS WebRTC
+    'https://playnowweb.onrender.com',
+    'wss://playnowweb.onrender.com',
+    'https://playnowweb.onrender.com:443',
+    'wss://playnowweb.onrender.com:443',
+    // 🔴 Replit (legacy)
     'https://play-now-emulator-felipelars.replit.app',
     'wss://play-now-emulator-felipelars.replit.app',
     'https://9d82cbde-f257-42c0-a522-97242fdf17c9-00-3qtza34279pqe.worf.replit.dev',
     'wss://9d82cbde-f257-42c0-a522-97242fdf17c9-00-3qtza34279pqe.worf.replit.dev',
+    // 🏠 Localhost (development)
     'http://localhost:5000',
     'ws://localhost:5000',
     'http://localhost:3000',
-  'ws://localhost:3000',
-  'http://localhost:5174',
-  'ws://localhost:5174'
+    'ws://localhost:3000',
+    'http://localhost:5174',
+    'ws://localhost:5174',
+    'http://localhost:10000',
+    'ws://localhost:10000'
   ];
 
   // Content Security Policy
   res.setHeader('Content-Security-Policy', [
     "default-src 'self'",
-    "script-src 'self' 'unsafe-inline' 'unsafe-eval'",
-    `connect-src 'self' ${socketUrls.join(' ')}`,
+    "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://cdn.peerjs.com",
+    `connect-src 'self' ws: wss: ${socketUrls.join(' ')}`,
     "img-src 'self' data: blob:",
     "style-src 'self' 'unsafe-inline'",
     "font-src 'self'",
     "frame-src 'self'",
-    "frame-ancestors 'self'"
+    "frame-ancestors 'self'",
+    "media-src 'self' blob:",
+    "object-src 'none'"
   ].join('; '));
 
   // Forçar charset correto em HTML

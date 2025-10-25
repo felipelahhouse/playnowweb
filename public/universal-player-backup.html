@@ -924,16 +924,16 @@
         function setupPeerConnection(peerId, sessionId) {
             try {
                 console.log('═══════════════════════════════════════════════════════');
-                console.log('[PEERJS] 🚀🚀🚀 INICIALIZANDO PEERJS 🚀🚀🚀');
+                console.log('[PEERJS] 🚀🚀🚀 INICIALIZANDO PEERJS CLOUD 🚀🚀🚀');
                 console.log('[PEERJS] Peer ID:', peerId);
                 console.log('[PEERJS] Session:', sessionId);
                 console.log('═══════════════════════════════════════════════════════');
                 
-                // Configuração do servidor PeerJS
+                // ✅ Configuração do PeerJS Cloud (GRATUITO + SEMPRE ONLINE)
                 const peerConfig = {
-                    host: 'playnowweb.onrender.com',
+                    host: '0.peerjs.com',
                     port: 443,
-                    path: '/peerjs',
+                    path: '/',
                     secure: true,
                     debug: 2,
                     config: {
@@ -948,8 +948,9 @@
                 
                 peer.on('open', (id) => {
                     console.log('╔════════════════════════════════════════════════════╗');
-                    console.log('║ [PEERJS] ✅ CONECTADO AO SERVIDOR PEERJS ✅        ║');
+                    console.log('║ [PEERJS] ✅ CONECTADO AO PEERJS CLOUD ✅           ║');
                     console.log('║ Peer ID:', id);
+                    console.log('║ 🌐 Servidor: 0.peerjs.com (GRATUITO)              ║');
                     console.log('╚════════════════════════════════════════════════════╝');
                     
                     notifyParent({ 
