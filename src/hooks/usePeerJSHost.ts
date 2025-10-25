@@ -18,15 +18,16 @@ interface UsePeerJSHostProps {
   onInputReceived?: (playerId: string, input: PeerInputMessage) => void;
 }
 
-// 🌐 SERVIDOR PEERJS - APENAS PÚBLICO (MAIS CONFIÁVEL)
-// ✅ Usar apenas 0.peerjs.com garante que host e player estejam no mesmo servidor
+// 🌐 SERVIDOR PEERJS - APENAS RENDER (SIMPLICIDADE E CONTROLE)
+// ✅ Servidor próprio no Render - testado e funcionando!
+// ✅ SEM FALLBACK - garante que todos usem o MESMO servidor sempre
 const PEER_SERVERS = [
   {
-    host: '0.peerjs.com',
+    host: 'playnowweb.onrender.com',
     port: 443,
-    path: '/',
+    path: '/peerjs',
     secure: true,
-    name: 'PeerJS Cloud (Público Gratuito)'
+    name: 'PlayNow Server (Render)'
   }
 ];
 
@@ -95,9 +96,15 @@ export const usePeerJSHost = ({
         peer.on('open', (id) => {
           console.log(`🟢 [HOST] Conectado: ${server.name}`);
           console.log(`✅ [HOST] PeerID: ${id}`);
+          console.log(`📡 [HOST] Servidor PeerJS: ${server.host}`);
           setPeerId(id);
           setIsReady(true);
           setConnectionAttempts(0);
+          
+          // 🔄 Salvar qual servidor foi usado (para players usarem o mesmo)
+          if (onPlayerJoined) {
+            console.log(`💾 [HOST] Servidor selecionado: ${server.name} (index: ${serverIndex})`);
+          }
         });
 
         // 👥 Receber conexões de PLAYERS

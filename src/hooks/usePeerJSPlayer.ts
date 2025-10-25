@@ -10,15 +10,16 @@ interface UsePeerJSPlayerProps {
   onDataReceived?: (data: unknown) => void;
 }
 
-// 🌐 SERVIDOR PEERJS - APENAS PÚBLICO (MAIS CONFIÁVEL)
-// ✅ Usar apenas 0.peerjs.com garante que host e player estejam no mesmo servidor
+// 🌐 SERVIDOR PEERJS - APENAS RENDER (SIMPLICIDADE E CONTROLE)
+// ✅ Servidor próprio no Render - testado e funcionando!
+// ✅ SEM FALLBACK - garante que todos usem o MESMO servidor sempre
 const PEER_SERVERS = [
   {
-    host: '0.peerjs.com',
+    host: 'playnowweb.onrender.com',
     port: 443,
-    path: '/',
+    path: '/peerjs',
     secure: true,
-    name: 'PeerJS Cloud (Público Gratuito)'
+    name: 'PlayNow Server (Render)'
   }
 ];
 
