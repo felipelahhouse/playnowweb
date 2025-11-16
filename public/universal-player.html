@@ -1585,25 +1585,36 @@
                     console.log('[URL FIX] Converted to absolute URL:', romUrl);
                 }
                 
-                // ✅ PROXY CLOUDFLARE WORKER: Garante que arquivos externos funcionem
-                // Se a URL for do R2 pub-* ou contiver .chd, usar o proxy worker
-                if (romUrl && (romUrl.includes('pub-') || romUrl.toLowerCase().endsWith('.chd'))) {
-                    console.log('[PROXY] URL original:', romUrl);
-                    // Extrair apenas o nome do arquivo se for URL completa
-                    let filename = romUrl;
-                    if (romUrl.includes('/')) {
-                        filename = romUrl.split('/').pop();
+                // ✅ PROXY CLOUDFLARE WORKER: Sistema inteligente de proxy
+                // Detecta URLs do R2 e redireciona para o worker proxy
+                if (romUrl) {
+                    console.log('[PROXY] URL original do Firebase:', romUrl);
+                    
+                    // Se a URL contém pub- (Cloudflare R2 direto), extrair o caminho
+                    if (romUrl.includes('pub-') && romUrl.includes('.r2.dev')) {
+                        // Extrair apenas o caminho após .r2.dev/
+                        const match = romUrl.match(/\.r2\.dev\/(.*)/);
+                        if (match) {
+                            const path = match[1];
+                            // Construir URL do worker proxy
+                            romUrl = 'https://r2-proxy.felipelars45.workers.dev/' + path;
+                            console.log('[PROXY] ✅ Redirecionado para Worker:', romUrl);
+                        }
                     }
-                    // Construir URL do proxy
-                    const workerUrl = 'https://r2-proxy.felipelars45.workers.dev/roms/ps1/' + encodeURIComponent(filename);
-                    console.log('[PROXY] Usando Cloudflare Worker:', workerUrl);
-                    romUrl = workerUrl;
+                    // Se for URL direta do worker, deixar como está
+                    else if (romUrl.includes('r2-proxy.felipelars45.workers.dev')) {
+                        console.log('[PROXY] ✅ Já usa Worker proxy');
+                    }
+                    // URLs externas normais
+                    else {
+                        console.log('[PROXY] URL externa direta:', romUrl);
+                    }
                 }
                 
                 window.EJS_gameUrl = romUrl;
                 window.EJS_gameName = gameTitle;
                 
-                console.log('[ROM] URL final:', romUrl);
+                console.log('[ROM] URL final configurada:', romUrl);
                 
                 // ⚡ OTIMIZAÇÃO: Idioma em inglês para evitar erros de tradução
                 window.EJS_language = 'en-US';
