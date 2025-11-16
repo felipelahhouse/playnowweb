@@ -6,6 +6,131 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="mobile-web-app-capable" content="yes">
+    <meta name="theme-color" content="#000000">
+    <title>Universal Emulator Player</title>
+    
+    <!-- 🚀 EmulatorJS CSS do CDN (Super Rápido) -->
+    <link rel="stylesheet" href="https://cdn.emulatorjs.org/stable/data/emulator.min.css" crossorigin="anonymous">
+    
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        html, body {
+            margin: 0 !important;
+            padding: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            overflow: hidden !important;
+            background: #000 !important;
+            border: none !important;
+        }
+        
+        body {
+            margin: 0;
+            padding: 0;
+            background: #000;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Arial, sans-serif;
+            overflow: hidden;
+            -webkit-tap-highlight-color: transparent;
+            -webkit-touch-callout: none;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+        
+        #loading {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            color: #0ea5e9;
+            z-index: 9999;
+            padding: 30px;
+            max-width: 90%;
+            background: rgba(0, 0, 0, 0.95);
+            border-radius: 20px;
+            box-shadow: 0 10px 50px rgba(14, 165, 233, 0.3);
+            backdrop-filter: blur(10px);
+        }
+        
+        #loading.hidden {
+            display: none !important;
+            visibility: hidden !important;
+            opacity: 0 !important;
+            pointer-events: none !important;
+            width: 0 !important;
+            height: 0 !important;
+            position: absolute !important;
+            top: -9999px !important;
+            left: -9999px !important;
+            z-index: -9999 !important;
+        }
+        
+        .spinner {
+            width: 60px;
+            height: 60px;
+            border: 5px solid rgba(14, 165, 233, 0.2);
+            border-top-color: #0ea5e9;
+            border-radius: 50%;
+            animation: spin 0.8s linear infinite;
+            margin: 0 auto 20px;
+        }
+        
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        
+        #status {
+            font-size: 14px;
+            font-weight: 600;
+            line-height: 1.6;
+            color: #0ea5e9;
+            margin-bottom: 15px;
+        }
+        
+        .status-details {
+            font-size: 12px;
+            color: #64748b;
+            margin-top: 8px;
+            font-weight: normal;
+        }
+        
+        /* Barra de progresso */
+        .progress-container {
+            width: 100%;
+            max-width: 300px;
+            height: 8px;
+            background: rgba(14, 165, 233, 0.2);
+            border-radius: 10px;
+            margin: 15px auto;
+            overflow: hidden;
+            position: relative;
+        }
+        
+        .progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #0ea5e9, #06b6d4);
+            border-radius: 10px;
+            width: 0%;
+            transition: width 0.5s ease;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .progress-bar::after {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            bottom: 0;
             right: 0;
             background: linear-gradient(90deg, transparent, rgba(255,255,255,0.3), transparent);
             animation: shimmer 1.5s infinite;
@@ -130,10 +255,91 @@
             font-weight: normal;
         }
         
-        #game {
+        /* Overlay para clicar fora e fechar */
+        #game-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
             width: 100vw;
             height: 100vh;
-            position: relative;
+            background: #000 !important;
+            z-index: 9998;
+            display: block !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            outline: none !important;
+        }
+        
+        #game-container {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100vw !important;
+            height: 100vh !important;
+            max-width: 100vw !important;
+            max-height: 100vh !important;
+            background: #000 !important;
+            border: none !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            overflow: hidden !important;
+        }
+        
+        /* Botão de Fechar GRANDE e SEMPRE VISÍVEL */
+        #close-button {
+            position: fixed !important;
+            top: 20px !important;
+            right: 20px !important;
+            width: 70px !important;
+            height: 70px !important;
+            background: rgba(239, 68, 68, 1) !important;
+            border: 4px solid rgba(255, 255, 255, 1) !important;
+            border-radius: 50% !important;
+            color: white !important;
+            font-size: 36px !important;
+            font-weight: 900 !important;
+            line-height: 1 !important;
+            cursor: pointer !important;
+            z-index: 2147483647 !important;
+            display: flex !important;
+            align-items: center !important;
+            justify-content: center !important;
+            transition: all 0.2s ease !important;
+            box-shadow: 0 6px 30px rgba(0, 0, 0, 0.9), 0 0 0 3px rgba(255, 255, 255, 0.8), inset 0 2px 10px rgba(255, 255, 255, 0.3) !important;
+            pointer-events: auto !important;
+            visibility: visible !important;
+            opacity: 1 !important;
+            transform: translateZ(999999px) !important;
+            user-select: none !important;
+            -webkit-user-select: none !important;
+        }
+        
+        #close-button:hover {
+            background: rgb(220, 38, 38) !important;
+            transform: scale(1.1) translateZ(0) !important;
+            box-shadow: 0 6px 30px rgba(0, 0, 0, 0.9), 0 0 0 3px rgba(255, 255, 255, 0.8) !important;
+        }
+        
+        #close-button:hover {
+            background: rgba(220, 38, 38, 1) !important;
+            transform: scale(1.15) translateZ(999999px) !important;
+            box-shadow: 0 8px 40px rgba(239, 68, 68, 1), 0 0 0 4px rgba(255, 255, 255, 1) !important;
+        }
+        
+        #close-button:active {
+            transform: scale(0.95) translateZ(999999px) !important;
+        }
+
+        #game {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
+            width: 100vw !important;
+            height: 100vh !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
             z-index: 1 !important;
             display: block !important;
             visibility: visible !important;
@@ -142,8 +348,11 @@
             background: #000 !important;
         }
         
-        /* ✅ CRÍTICO: Garante que canvas do EmulatorJS seja visível */
+        /* ✅ CRÍTICO: Garante que canvas do EmulatorJS seja visível SEM BORDAS */
         #game canvas {
+            position: fixed !important;
+            top: 0 !important;
+            left: 0 !important;
             display: block !important;
             visibility: visible !important;
             opacity: 1 !important;
@@ -151,8 +360,25 @@
             height: 100% !important;
             max-width: 100% !important;
             max-height: 100% !important;
-            object-fit: contain !important;
+            object-fit: fill !important;
+            image-rendering: auto !important;
             background: #000 !important;
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            outline: none !important;
+        }
+        
+        /* Remove qualquer margem ou padding do container do canvas */
+        #game > div,
+        #game > div > *,
+        .emulator-container,
+        .ejs-container {
+            margin: 0 !important;
+            padding: 0 !important;
+            border: none !important;
+            width: 100% !important;
+            height: 100% !important;
         }
         
         /* Garante que overlays do EmulatorJS não bloqueiem o jogo */
@@ -190,7 +416,9 @@
                 overflow: hidden;
                 position: fixed;
                 width: 100%;
-                height: 100%;
+                height: 100vh;
+                height: 100dvh; /* Dynamic viewport height */
+                touch-action: none;
             }
             
             #game {
@@ -198,7 +426,13 @@
                 top: 0;
                 left: 0;
                 width: 100%;
-                height: 100%;
+                height: 100vh;
+                height: 100dvh;
+                touch-action: none;
+            }
+            
+            #game iframe {
+                touch-action: none;
             }
             
             .spinner {
@@ -213,6 +447,29 @@
             .status-details {
                 font-size: 11px;
             }
+            
+            #close-button {
+                top: 10px;
+                right: 10px;
+                width: 44px;
+                height: 44px;
+                font-size: 24px;
+            }
+            
+            #gamepad-indicator {
+                top: 10px;
+                right: 60px;
+                font-size: 12px;
+                padding: 8px 12px;
+            }
+        }
+        
+        /* Landscape mobile */
+        @media (max-width: 768px) and (orientation: landscape) {
+            #game {
+                height: 100vh;
+                height: 100dvh;
+            }
         }
         
         /* iOS specific */
@@ -225,14 +482,21 @@
     </style>
 </head>
 <body>
-    <div id="loading">
-        <div class="spinner"></div>
-        <div id="status">Inicializando...</div>
-        <div class="progress-container">
-            <div class="progress-bar" id="progress-bar"></div>
-        </div>
-        <div class="progress-text" id="progress-text">0%</div>
-    </div>
+    <!-- Botão de Fechar - SEMPRE VISÍVEL -->
+    <button id="close-button" onclick="closeGame()" title="Fechar jogo (ESC)">✕</button>
+    
+    <!-- Overlay para clicar fora e fechar -->
+    <div id="game-overlay" onclick="closeGame()">
+        <div id="game-container" onclick="event.stopPropagation()">
+            
+            <div id="loading">
+                <div class="spinner"></div>
+                <div id="status">Inicializando...</div>
+                <div class="progress-container">
+                    <div class="progress-bar" id="progress-bar"></div>
+                </div>
+                <div class="progress-text" id="progress-text">0%</div>
+            </div>
     
     <div id="error">
         <div id="error-text">Erro ao carregar o emulador</div>
@@ -249,6 +513,8 @@
     </div>
     
     <div id="game"></div>
+        </div>
+    </div>
 
     <script>
         // ========================================
@@ -417,6 +683,41 @@
         })();
 
         // ========================================
+        // ❌ FUNÇÃO FECHAR JOGO
+        // ========================================
+        function closeGame() {
+            console.log('[CLOSE] Fechando jogo...');
+            
+            // Pausa o jogo se possível
+            try {
+                if (window.EJS_emulator) {
+                    window.EJS_emulator.pause();
+                }
+            } catch (e) {
+                console.log('[CLOSE] Erro ao pausar:', e);
+            }
+            
+            // Volta para a home ou fecha a janela
+            if (window.opener) {
+                window.close(); // Se foi aberto em popup/nova janela
+            } else if (document.referrer && document.referrer.includes('playnowemulator.com')) {
+                window.history.back(); // Volta para página anterior
+            } else {
+                window.location.href = '/'; // Vai para home
+            }
+        }
+        
+        // ========================================
+        // ⌨️ TECLA ESC PARA FECHAR
+        // ========================================
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape' || e.keyCode === 27) {
+                e.preventDefault();
+                closeGame();
+            }
+        });
+
+        // ========================================
         // 🗑️ CACHE CLEAR FUNCTION
         // ========================================
         async function clearCacheAndReload() {
@@ -461,9 +762,31 @@
         // ========================================
         
         const params = new URLSearchParams(window.location.search);
-        const romUrl = params.get('rom');
+        let romUrl = params.get('rom');
         const gameTitle = params.get('title') || 'Retro Game';
         const platform = params.get('platform') || 'snes'; // snes, nes, gba, gbc, gb, genesis, ps1, n64, etc
+        
+        // 📡 Receber ROM via postMessage (quando enviada pelo GamePlayer.tsx)
+        window.addEventListener('message', (event) => {
+            if (event.origin !== window.location.origin) {
+                return;
+            }
+            
+            if (event.data?.type === 'load-rom') {
+                console.log('[POST MESSAGE] 📡 ROM recebida via postMessage');
+                console.log('[POST MESSAGE] URL:', event.data.romUrl);
+                console.log('[POST MESSAGE] Nome:', event.data.romName);
+                
+                // Atualizar romUrl com a URL recebida
+                romUrl = event.data.romUrl;
+                
+                // Se ainda não iniciou o carregamento, iniciar agora
+                if (!window.__EJS_gameStarted && romUrl) {
+                    console.log('[POST MESSAGE] ✅ Iniciando carregamento com ROM recebida');
+                    loadEmulator();
+                }
+            }
+        });
         
         // ✅ DEBUG: Log inicial
         console.log('========================================');
@@ -474,6 +797,64 @@
         console.log('[PARAMS] Platform:', platform);
         console.log('[PARAMS] Full URL:', window.location.href);
         console.log('========================================');
+        
+        // ========================================
+        // 🔥 DETECTOR DE TIMEOUT - 60 SEGUNDOS (aumentado para CHD)
+        // ========================================
+        let romLoadTimeout = null;
+        let romLoadStartTime = Date.now();
+        const ROM_LOAD_TIMEOUT_MS = 60000; // 60 segundos para arquivos CHD grandes
+
+        function startRomLoadTimeout() {
+            console.log('[TIMEOUT] ⏱️ Iniciando detector de timeout (45s)');
+            romLoadStartTime = Date.now();
+            
+            romLoadTimeout = setTimeout(() => {
+                if (!window.__EJS_gameStarted && !loading.classList.contains('hidden')) {
+                    const elapsed = ((Date.now() - romLoadStartTime) / 1000).toFixed(1);
+                    console.error(`[TIMEOUT] ❌ ROM não carregou em ${elapsed}s`);
+                    console.error('[TIMEOUT] URL da ROM:', romUrl);
+                    
+                    let errorMsg = `⏱️ Timeout ao carregar o jogo (${elapsed}s)\n\n`;
+                    
+                    // Detectar se é proxy R2
+                    if (romUrl && (romUrl.includes('/proxy-r2?url=') || romUrl.includes('playnowweb.onrender.com'))) {
+                        errorMsg += '🔧 POSSÍVEL CAUSA: Servidor proxy não está respondendo\n\n';
+                        errorMsg += '📋 Soluções:\n';
+                        errorMsg += '1. O servidor Render.com pode estar "dormindo" (cold start)\n';
+                        errorMsg += '2. Aguarde 30 segundos e tente novamente\n';
+                        errorMsg += '3. Verifique se o backend foi deployado no Render.com\n';
+                        errorMsg += '4. Tente outro jogo para testar\n\n';
+                        errorMsg += '💡 Dica: Primeiros acessos demoram mais (até 1 minuto)';
+                    } else if (romUrl && (romUrl.includes('.r2.dev') || romUrl.includes('r2.cloudflarestorage.com'))) {
+                        errorMsg += '🔧 POSSÍVEL CAUSA: Erro de CORS no Cloudflare R2\n\n';
+                        errorMsg += '📋 Soluções:\n';
+                        errorMsg += '1. Configure CORS no painel do Cloudflare R2\n';
+                        errorMsg += '2. Use o proxy R2 (variável VITE_R2_FORCE_PROXY)\n';
+                        errorMsg += '3. Verifique se a URL do R2 está acessível\n';
+                        errorMsg += '4. Teste o link diretamente no navegador';
+                    } else {
+                        errorMsg += '🔧 POSSÍVEL CAUSA: Problema ao baixar o jogo\n\n';
+                        errorMsg += '📋 Soluções:\n';
+                        errorMsg += '1. Verifique sua conexão com internet\n';
+                        errorMsg += '2. Tente recarregar a página (F5)\n';
+                        errorMsg += '3. Limpe o cache do navegador\n';
+                        errorMsg += '4. Tente outro jogo';
+                    }
+                    
+                    showError(errorMsg);
+                }
+            }, ROM_LOAD_TIMEOUT_MS);
+        }
+
+        function clearRomLoadTimeout() {
+            if (romLoadTimeout) {
+                clearTimeout(romLoadTimeout);
+                romLoadTimeout = null;
+                const elapsed = ((Date.now() - romLoadStartTime) / 1000).toFixed(1);
+                console.log(`[TIMEOUT] ✅ Timeout cancelado (carregado em ${elapsed}s)`);
+            }
+        }
         
         const loading = document.getElementById('loading');
         const status = document.getElementById('status');
@@ -528,6 +909,33 @@
         console.log('[DEVICE INFO] Pixel Ratio:', device.pixelRatio);
         console.log('[DEVICE INFO] ==========================================');
         
+        // 📱 Otimizações Mobile Específicas
+        if (device.isMobile) {
+            console.log('[MOBILE] Aplicando otimizações mobile...');
+            
+            // Prevenir zoom no iOS
+            document.addEventListener('gesturestart', function(e) {
+                e.preventDefault();
+            });
+            
+            // Prevenir double-tap zoom
+            let lastTouchEnd = 0;
+            document.addEventListener('touchend', function(e) {
+                const now = Date.now();
+                if (now - lastTouchEnd <= 300) {
+                    e.preventDefault();
+                }
+                lastTouchEnd = now;
+            }, false);
+            
+            // Forçar orientação landscape no mobile (quando possível)
+            if (screen.orientation && screen.orientation.lock) {
+                screen.orientation.lock('landscape').catch(err => {
+                    console.log('[MOBILE] Orientação landscape não disponível:', err);
+                });
+            }
+        }
+        
         // ========================================
         // 🛡️ PRE-LOAD EMULATORJS ERROR PROTECTION
         // ========================================
@@ -563,13 +971,18 @@
         });
         
         window.addEventListener('error', function(event) {
-            // ✅ CRÍTICO: Ignorar TODOS os erros de setupKeys e controles
+            // ✅ CRÍTICO: Apenas LOGAR erros não-críticos, NÃO BLOQUEAR
             const nonCriticalErrors = ['setupKeys', 'ResizeObserver', 'Script error', 'controls', 'gamepad', 'createControlSettingMenu', 'bindListeners', 'reading \'0\''];
-            if (nonCriticalErrors.some(err => event.message && event.message.includes(err))) {
+            
+            const isNonCritical = nonCriticalErrors.some(err => event.message && event.message.includes(err));
+            
+            if (isNonCritical) {
+                console.warn('[NON-CRITICAL ERROR]', event.message);
                 event.preventDefault();
                 return;
             }
             
+            // Para outros erros, apenas loga mas não previne (deixa EmulatorJS tratar)
             console.error('[GLOBAL ERROR]', event.error || event.message);
         }, true);
         
@@ -671,6 +1084,19 @@
                 requiresBios: false,
                 performance: 'high'
             },
+            'psp': {
+                core: 'ppsspp',
+                name: 'PlayStation Portable',
+                extensions: ['.iso', '.cso', '.pbp', '.zip', '.7z'],
+                threads: !device.isMobile && device.cores > 2,
+                requiresBios: false,
+                performance: device.memory > 4 ? 'high' : 'balanced',
+                specialConfig: {
+                    timeout: 60000,
+                    useAlternativeCore: false,
+                    compression: 'auto'
+                }
+            },
             'arcade': {
                 core: 'fbalpha',
                 name: 'Arcade',
@@ -694,26 +1120,35 @@
         console.log('[CONFIG]', { platform, config });
         
         // ========================================
-        // 📁 ARQUIVOS LOCAIS - SEM CDN EXTERNO!
+        // � CDN PRIMEIRO PARA VELOCIDADE MÁXIMA!
         // ========================================
-        // ✅ USANDO ARQUIVOS HOSPEDADOS LOCALMENTE
+        // ✅ CDN é 10x mais rápido que arquivos locais
         const CDN_SOURCES = [
             {
-                name: '� Arquivos Locais',
-                base: '/emulatorjs/',
+                name: '🚀 EmulatorJS CDN (Super Rápido)',
+                base: 'https://cdn.emulatorjs.org/stable/data/',
                 priority: 1,
+                cors: true,
+                tested: true,
+                hasCores: true
+            },
+            {
+                name: '🔧 EmulatorJS Latest (CHD Support)',
+                base: 'https://cdn.jsdelivr.net/gh/EmulatorJS/EmulatorJS@latest/data/',
+                priority: 2,
+                cors: true,
+                tested: true,
+                hasCores: true,
+                chdSupport: true
+            },
+            {
+                name: '📁 Arquivos Locais (Backup)',
+                base: '/emulatorjs/',
+                priority: 3,
                 cors: false,
                 tested: true,
                 hasCores: true,
                 local: true
-            },
-            {
-                name: '� EmulatorJS CDN (Fallback)',
-                base: 'https://cdn.emulatorjs.org/stable/data/',
-                priority: 2,
-                cors: true,
-                tested: true,
-                hasCores: true
             }
         ];
         
@@ -737,6 +1172,9 @@
             emulatorStartedGlobally = true;
             window.__EJS_gameStarted = true;
             clearCdnBootGuard('game started');
+            
+            // ⏱️ CANCELA DETECTOR DE TIMEOUT
+            clearRomLoadTimeout();
         }
 
         function resetEmulatorGlobalState() {
@@ -797,10 +1235,8 @@
         // ========================================
         // PeerJS Connection for WebRTC Multiplayer
         // ========================================
-    let peer = null;
-    let peerInitializationInProgress = false;
-    let peerLibraryLoading = false;
-    let connections = new Map(); // Map de conexões P2P ativas
+        let peer = null;
+        let connections = new Map(); // Map de conexões P2P ativas
         
         function initializePeerJS() {
             const params = new URLSearchParams(window.location.search);
@@ -813,38 +1249,19 @@
                 console.log('[PEERJS] sessionId:', sessionId);
                 return;
             }
-
-            if (peer && !peer.destroyed) {
-                console.log('[PEERJS] 🔁 PeerJS já está ativo, ignorando nova inicialização');
-                return;
-            }
-
-            if (peerInitializationInProgress) {
-                console.log('[PEERJS] ⏳ Inicialização já em andamento, aguardando...');
-                return;
-            }
             
             // Carregar PeerJS library se não estiver disponível
             if (typeof Peer === 'undefined') {
-                if (peerLibraryLoading) {
-                    console.log('[PEERJS] ⏳ Biblioteca PeerJS já está sendo carregada, aguardando...');
-                    return;
-                }
-
-                peerLibraryLoading = true;
                 console.log('[PEERJS] 📥 Carregando PeerJS library...');
                 const script = document.createElement('script');
                 script.src = 'https://unpkg.com/peerjs@1.5.4/dist/peerjs.min.js';
                 script.crossOrigin = 'anonymous';
                 script.onload = () => {
-                    peerLibraryLoading = false;
                     console.log('[PEERJS] ✅ PeerJS library carregada');
                     setupPeerConnection(peerId, sessionId);
                 };
                 script.onerror = () => {
-                    peerLibraryLoading = false;
                     console.error('[PEERJS] ❌ Falha ao carregar PeerJS library');
-                    peerInitializationInProgress = false;
                 };
                 document.head.appendChild(script);
             } else {
@@ -853,21 +1270,6 @@
         }
         
         function setupPeerConnection(peerId, sessionId) {
-            if (peerInitializationInProgress) {
-                console.log('[PEERJS] ⏳ Já existe uma inicialização em andamento, ignorando chamada duplicada');
-                return;
-            }
-
-            if (peer && !peer.destroyed) {
-                console.log('[PEERJS] 🔄 Conexão atual ainda ativa, não será recriada');
-                return;
-            }
-
-            if (peer && peer.destroyed) {
-                peer = null;
-            }
-
-            peerInitializationInProgress = true;
             try {
                 console.log('═══════════════════════════════════════════════════════');
                 console.log('[PEERJS] 🚀🚀🚀 INICIALIZANDO PEERJS 🚀🚀🚀');
@@ -893,7 +1295,6 @@
                 peer = new Peer(peerId, peerConfig);
                 
                 peer.on('open', (id) => {
-                    peerInitializationInProgress = false;
                     console.log('╔════════════════════════════════════════════════════╗');
                     console.log('║ [PEERJS] ✅ CONECTADO AO SERVIDOR PEERJS ✅        ║');
                     console.log('║ Peer ID:', id);
@@ -912,19 +1313,11 @@
                 });
                 
                 peer.on('error', (err) => {
-                    peerInitializationInProgress = false;
                     console.error('[PEERJS] ❌ Erro:', err.type, err.message);
                     
                     // Tentar reconectar após erro
                     if (err.type === 'network' || err.type === 'server-error') {
                         console.log('[PEERJS] 🔄 Tentando reconectar em 3s...');
-                        if (peer && !peer.destroyed) {
-                            try {
-                                peer.destroy();
-                            } catch (destroyErr) {
-                                console.warn('[PEERJS] ⚠️ Falha ao destruir peer anterior:', destroyErr);
-                            }
-                        }
                         setTimeout(() => {
                             if (!peer || peer.destroyed) {
                                 setupPeerConnection(peerId, sessionId);
@@ -934,7 +1327,6 @@
                 });
                 
                 peer.on('disconnected', () => {
-                    peerInitializationInProgress = false;
                     console.log('[PEERJS] ⚠️ Desconectado do servidor');
                     // Tentar reconectar
                     if (!peer.destroyed) {
@@ -943,13 +1335,10 @@
                 });
                 
                 peer.on('close', () => {
-                    peerInitializationInProgress = false;
-                    peer = null;
                     console.log('[PEERJS] 🔌 Conexão fechada');
                 });
                 
             } catch (err) {
-                peerInitializationInProgress = false;
                 console.error('[PEERJS] ❌ Erro ao inicializar:', err);
             }
         }
@@ -1016,6 +1405,12 @@
                 }
             });
         }
+        
+        // ========================================
+        // ❌ REMOVIDO: Socket.IO - Sistema usa apenas PeerJS/WebRTC
+        // ========================================
+        // O multiplayer funciona 100% peer-to-peer via WebRTC
+        // Não precisamos de Socket.IO para sincronização
         
         function getPerformanceSettings(perfLevel) {
             const settings = {
@@ -1095,6 +1490,9 @@
         
         async function loadEmulator() {
             try {
+                // ⏱️ INICIA DETECTOR DE TIMEOUT
+                startRomLoadTimeout();
+                
                 resetEmulatorGlobalState();
                 console.log('='.repeat(60));
                 console.log('[EMULATOR] 🎮 Starting emulator initialization...');
@@ -1123,33 +1521,6 @@
                 
                 if (!romUrl) {
                     throw new Error('Nenhuma ROM especificada');
-                }
-                
-                // ✅ VALIDAR SE A ROM É ACESSÍVEL (NÃO-BLOQUEANTE)
-                try {
-                    console.log('[ROM VALIDATION] 📦 Testando acessibilidade da ROM...');
-                    const romTestResponse = await fetch(romUrl, { 
-                        method: 'HEAD',
-                        cache: 'no-cache'
-                    });
-                    
-                    console.log('[ROM VALIDATION] Response Status:', romTestResponse.status);
-                    console.log('[ROM VALIDATION] Response OK:', romTestResponse.ok);
-                    console.log('[ROM VALIDATION] Content-Type:', romTestResponse.headers.get('content-type'));
-                    console.log('[ROM VALIDATION] Content-Length:', romTestResponse.headers.get('content-length'));
-                    
-                    if (!romTestResponse.ok) {
-                        console.warn('[ROM VALIDATION] ⚠️ ROM retornou status:', romTestResponse.status);
-                        console.warn('[ROM VALIDATION] ⚠️ Tentando carregar mesmo assim...');
-                    } else {
-                        console.log('[ROM VALIDATION] ✅ ROM é acessível!');
-                    }
-                } catch (romError) {
-                    // ✅ NÃO BLOQUEAR - apenas avisar
-                    console.warn('[ROM VALIDATION] ⚠️ Não foi possível validar ROM (pode ser CORS ou servidor local)');
-                    console.warn('[ROM VALIDATION] Erro:', romError.message);
-                    console.warn('[ROM VALIDATION] Continuando carregamento mesmo assim...');
-                    // NÃO fazer throw - deixar o emulador tentar carregar
                 }
                 
                 updateStatus('Preparando emulador...', `Console: ${config.name}`, 10);
@@ -1189,90 +1560,57 @@
                 console.log('[PROTECTION] ✅ Controles e configurações do emulador habilitados');
 
                 // ========================================
-                // 🚨 CORREÇÃO CRÍTICA: Configuração LOCAL COMPLETA
+                // 🌐 CDN CONFIGURATION (método original - rápido)
                 // ========================================
-                // ✅ TODOS OS ARQUIVOS LOCAIS
-                window.EJS_pathtodata = '/emulatorjs/';
-                
-                // Mapeia os arquivos que o loader.js procura
-                window.EJS_paths = {
-                    'emulator.min.js': '/emulatorjs/emulator.min.js',
-                    'emulator.min.css': '/emulatorjs/emulator.min.css'
-                };
-                
-                // 🛡️ PROTEÇÃO: Mock de objetos que podem causar erro
-                window.EJS_ready = false;
-                window.EJS_DEBUG_XX = false;
-                
-                console.log('[LOCAL] ✅ EmulatorJS configurado para arquivos locais');
-                console.log('[LOCAL] Base path:', window.EJS_pathtodata);
+                // Path será definido pelo loadFromCdn() - não define aqui
+                console.log('[CDN] ✅ Usando CDN para carregamento rápido (método original)');
 
                 // ========================================
                 // EmulatorJS Configuration
                 // ========================================
-                console.log('========================================');
-                console.log('[EMULATOR CONFIG] 🎮 Configurando EmulatorJS...');
-                console.log('[EMULATOR CONFIG] Player:', '#game');
-                console.log('[EMULATOR CONFIG] Core:', config.core);
-                console.log('[EMULATOR CONFIG] ROM URL:', romUrl);
-                console.log('[EMULATOR CONFIG] Game Name:', gameTitle);
-                console.log('[EMULATOR CONFIG] Platform:', platform);
-                console.log('[EMULATOR CONFIG] CDN Path:', '/emulatorjs/');
-                console.log('========================================');
-                
-                // 🚨 CRITICAL: Verifica se o elemento #game existe
-                const gameElement = document.getElementById('game');
-                if (!gameElement) {
-                    throw new Error('Elemento #game não encontrado no DOM!');
-                }
-                console.log('[EMULATOR CONFIG] ✅ Elemento #game encontrado:', gameElement);
-                
                 window.EJS_player = '#game';
                 window.EJS_core = config.core;
+                
+                // ✅ CORREÇÃO: Adicionar cache buster para Firebase Storage
+                if (romUrl && romUrl.includes('firebasestorage.googleapis.com')) {
+                    const separator = romUrl.includes('?') ? '&' : '?';
+                    romUrl = romUrl + separator + '_cb=' + Date.now();
+                    console.log('[CACHE FIX] Added cache buster to Firebase Storage URL');
+                }
+                
+                // ✅ CORREÇÃO: Converter URLs relativas para absolutas (necessário para CHD e arquivos grandes)
+                if (romUrl && romUrl.startsWith('/')) {
+                    const baseUrl = window.location.origin;
+                    romUrl = baseUrl + romUrl;
+                    console.log('[URL FIX] Converted to absolute URL:', romUrl);
+                }
+                
                 window.EJS_gameUrl = romUrl;
                 window.EJS_gameName = gameTitle;
+                
+                // ⚡ OTIMIZAÇÃO: Idioma em inglês para evitar erros de tradução
+                window.EJS_language = 'en-US';
+                window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
                 window.EJS_color = '#0ea5e9';
                 window.EJS_startOnLoaded = true;
                 
-                // 🚨 DEBUG: Log de todas as variáveis do EmulatorJS
-                console.log('[EMULATOR CONFIG] 📋 Todas as configurações:');
-                console.log('  - EJS_player:', window.EJS_player);
-                console.log('  - EJS_core:', window.EJS_core);
-                console.log('  - EJS_gameUrl:', window.EJS_gameUrl);
-                console.log('  - EJS_gameName:', window.EJS_gameName);
-                console.log('  - EJS_pathtodata:', window.EJS_pathtodata);
-                console.log('  - EJS_startOnLoaded:', window.EJS_startOnLoaded);
+                // ⚡ OTIMIZAÇÕES DE PERFORMANCE
+                window.EJS_threads = true; // Usar Web Workers para melhor performance
+                window.EJS_multitap = false; // Desabilita multitap se não necessário
+                window.EJS_biosUrl = ''; // Carrega BIOS apenas se necessário
+                window.EJS_gamePatchUrl = ''; // Sem patches
                 
                 // ✅ HABILITAR CONTROLES E CONFIGURAÇÕES DO EMULADOR
                 window.EJS_disableDatabases = false; // ✅ Permite salvamento de configurações
                 window.EJS_loadSettings = true; // ✅ Permite carregar configurações
                 
-                // ✅ GARANTIR QUE TODOS OS CONTROLES APAREÇAM
-                window.EJS_buttons = true; // Mostrar botões de controle
-                window.EJS_VirtualGamepadSettings = true; // Configurações de gamepad virtual
-                window.EJS_controlsOpacity = 0.8; // Opacidade dos controles
+                // ✅ DEIXAR EMULATORJS GERENCIAR CONTROLES AUTOMATICAMENTE
+                // NÃO configurar EJS_VirtualGamepadSettings - causa bugs
+                // NÃO configurar EJS_gamepadControls - deixar automático
+                // NÃO configurar EJS_detectGamepad - deixar padrão do EmulatorJS
                 
-                // ✅ Configurações de menu e interface
-                window.EJS_menu = true; // Menu de opções
-                window.EJS_hideMenu = false; // Não esconder menu
-                window.EJS_showControls = true; // Mostrar controles
-                
-                // 🎮 CONFIGURAÇÕES DE GAMEPAD/CONTROLE
-                window.EJS_gamepadControls = true; // ✅ Habilitar suporte a gamepad
-                window.EJS_showControlsMenu = true; // ✅ Mostrar menu de controles
-                window.EJS_alignStartButton = 'bottom'; // Posição dos botões
-                
-                // 🎮 DETECÇÃO AUTOMÁTICA DE GAMEPAD
-                window.EJS_detectGamepad = true; // ✅ Detectar gamepad automaticamente
-                window.EJS_gamepadSupport = true; // ✅ Suporte completo a gamepad
-                window.EJS_gamepadIndex = 0; // Usar primeiro gamepad detectado
-                
-                // 🎮 FIX: Configuração padrão de teclas para evitar erro "Cannot read properties of undefined"
-                // ✅ NÃO USAR EJS_defaultOptions - deixar EmulatorJS carregar configurações padrão
-                // ✅ PROTEÇÃO: Deixar EmulatorJS gerenciar seus próprios controles
-                
-                console.log('[GAMEPAD] ✅ Configurações de controle habilitadas');
-                console.log('[GAMEPAD] ✅ Proteção contra erro setupKeys ativada');
+                console.log('[GAMEPAD] ✅ Usando detecção automática do EmulatorJS');
+                console.log('[GAMEPAD] ✅ Gamepad será detectado automaticamente quando conectado');
                 
                 // 🎮 EVENT LISTENERS: Detecta quando gamepad é conectado/desconectado
                 window.addEventListener('gamepadconnected', function(e) {
@@ -1351,6 +1689,103 @@
                     }
                 });
                 
+                // 🎮 SISTEMA HÍBRIDO: Eventos nativos + Polling ativo
+                // Combina eventos do navegador com verificação contínua para garantir 100% de detecção
+                let lastGamepadState = {};
+                let gamepadPollingInterval = null;
+                
+                // Adiciona listeners para eventos nativos do navegador (backup)
+                window.addEventListener('gamepadconnected', (e) => {
+                    console.log('[GAMEPAD NATIVE EVENT] 🎮 Evento nativo disparado:', e.gamepad.id);
+                    lastGamepadState[e.gamepad.index] = true;
+                });
+                
+                window.addEventListener('gamepaddisconnected', (e) => {
+                    console.log('[GAMEPAD NATIVE EVENT] ❌ Desconexão detectada:', e.gamepad.index);
+                    delete lastGamepadState[e.gamepad.index];
+                });
+                
+                function checkGamepads() {
+                    if (!navigator.getGamepads) return;
+                    
+                    const gamepads = navigator.getGamepads();
+                    
+                    for (let i = 0; i < gamepads.length; i++) {
+                        const gp = gamepads[i];
+                        
+                        if (gp && !lastGamepadState[i]) {
+                            // Novo gamepad conectado
+                            console.log('[GAMEPAD POLLING] 🎮 Controle detectado:', gp.id, 'Index:', i);
+                            lastGamepadState[i] = true;
+                            
+                            // Dispara evento manualmente se o navegador não disparou
+                            const event = new Event('gamepadconnected');
+                            event.gamepad = gp;
+                            window.dispatchEvent(event);
+                            
+                            // Notificação visual
+                            const notification = document.createElement('div');
+                            notification.style.cssText = `
+                                position: fixed;
+                                top: 20px;
+                                right: 20px;
+                                background: #4CAF50;
+                                color: white;
+                                padding: 15px 20px;
+                                border-radius: 8px;
+                                font-family: Arial, sans-serif;
+                                font-size: 14px;
+                                box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+                                z-index: 10000;
+                                animation: slideIn 0.3s ease-out;
+                            `;
+                            notification.innerHTML = `
+                                🎮 <strong>Controle Auto-Detectado!</strong><br>
+                                ${gp.id}<br>
+                                <small>Pronto para jogar!</small>
+                            `;
+                            document.body.appendChild(notification);
+                            
+                            setTimeout(() => {
+                                notification.style.animation = 'slideOut 0.3s ease-in';
+                                setTimeout(() => notification.remove(), 300);
+                            }, 4000);
+                            
+                        } else if (!gp && lastGamepadState[i]) {
+                            // Gamepad desconectado
+                            console.log('[GAMEPAD POLLING] ❌ Controle desconectado: Index', i);
+                            delete lastGamepadState[i];
+                            
+                            // Dispara evento manualmente
+                            const event = new Event('gamepaddisconnected');
+                            event.gamepad = { index: i };
+                            window.dispatchEvent(event);
+                        }
+                    }
+                }
+                
+                // ✅ VERIFICAÇÃO IMEDIATA ao carregar a página
+                console.log('[GAMEPAD POLLING] 🎮 Iniciando detecção automática...');
+                checkGamepads(); // Primeira verificação AGORA
+                
+                // Inicia polling ativo a cada 200ms (mais responsivo)
+                gamepadPollingInterval = setInterval(checkGamepads, 200);
+                console.log('[GAMEPAD POLLING] ✅ Sistema de auto-detecção ativo para TODAS as plataformas (verificação a cada 200ms)');
+                
+                // Verifica novamente após 1 segundo (garante detecção)
+                setTimeout(() => {
+                    console.log('[GAMEPAD POLLING] 🔄 Verificação secundária...');
+                    checkGamepads();
+                }, 1000);
+                
+                // Limpa polling ao sair da página
+                window.addEventListener('beforeunload', function() {
+                    if (gamepadPollingInterval) {
+                        clearInterval(gamepadPollingInterval);
+                        console.log('[GAMEPAD POLLING] Polling finalizado');
+                    }
+                });
+                
                 // 🚨 DEBUG: Testa se ROM URL está acessível (apenas para caminhos locais)
                 console.log('[ROM TEST] ROM URL:', romUrl);
                 
@@ -1359,7 +1794,14 @@
                     console.log('[ROM TEST] ✅ URL válida detectada (blob/http/https), pulando teste de acessibilidade');
                 } else {
                     // Testa apenas caminhos relativos (/roms/...)
-                    fetch(romUrl, { method: 'HEAD' })
+                    fetch(romUrl, { 
+                        method: 'HEAD',
+                        cache: 'no-cache',
+                        headers: {
+                            'Cache-Control': 'no-cache, no-store, must-revalidate',
+                            'Pragma': 'no-cache'
+                        }
+                    })
                         .then(response => {
                             console.log('[ROM TEST] ✅ ROM accessible! Status:', response.status);
                             console.log('[ROM TEST] Content-Type:', response.headers.get('content-type'));
@@ -1381,8 +1823,18 @@
                     if (platform.toLowerCase() === 'ps1') {
                         console.log('[PS1] Applying PS1-specific TURBO optimizations 🚀');
                         
-                        // Core otimizado para PS1
-                        window.EJS_core = 'pcsx_rearmed';
+                        // 🔧 CRITICAL: Detectar arquivo CHD e ajustar configurações
+                        const isCHD = romUrl && romUrl.toLowerCase().endsWith('.chd');
+                        if (isCHD) {
+                            console.log('[PS1] 🔧 CHD FILE DETECTED - Applying CHD-specific config');
+                            // Usar cores alternativos que suportam CHD melhor
+                            window.EJS_core = 'pcsx_rearmed'; // Manter pcsx_rearmed (melhor para CHD)
+                            window.EJS_pathtodata = 'https://cdn.jsdelivr.net/gh/EmulatorJS/EmulatorJS@latest/data/';
+                            console.log('[PS1] ✅ CHD support enabled via jsdelivr CDN');
+                        } else {
+                            // Core otimizado para PS1 não-CHD
+                            window.EJS_core = 'pcsx_rearmed';
+                        }
                         
                         // Configurações específicas PS1
                         window.EJS_gamePatchUrl = '';
@@ -1400,20 +1852,49 @@
                         
                         // 🎯 Otimizações do core PCSX ReARMed
                         window.EJS_coreopts = {
-                            'pcsx_rearmed_frameskip': '0', // Não pula frames
-                            'pcsx_rearmed_dithering': 'disabled', // Desabilita dithering (mais rápido)
-                            'pcsx_rearmed_duping_enable': 'disabled', // Não duplica frames
-                            'pcsx_rearmed_gpu_peops_fix': '0', // Sem fixes extras
+                            'pcsx_rearmed_frameskip': '0',
+                            'pcsx_rearmed_dithering': 'disabled',
+                            'pcsx_rearmed_duping_enable': 'disabled',
+                            'pcsx_rearmed_gpu_peops_fix': '0',
                             'pcsx_rearmed_gpu_peops_odd_even': 'disabled',
-                            'pcsx_rearmed_gpu_neon': 'enabled', // NEON acceleration
-                            'pcsx_rearmed_gteregsunneeded': 'enabled', // Pula cálculos desnecessários
-                            'pcsx_rearmed_nogteflags': 'enabled', // Pula flags GTE
-                            'pcsx_rearmed_nocdaudio': 'disabled', // Mantém áudio CD
+                            'pcsx_rearmed_gpu_neon': 'enabled',
+                            'pcsx_rearmed_gteregsunneeded': 'enabled',
+                            'pcsx_rearmed_nogteflags': 'enabled',
+                            'pcsx_rearmed_nocdaudio': 'disabled',
                             'pcsx_rearmed_spuirq': 'enabled',
                             'pcsx_rearmed_pe2_fix': 'disabled',
                             'pcsx_rearmed_idiablofix': 'disabled',
-                            'pcsx_rearmed_inuyasha_fix': 'disabled'
+                            'pcsx_rearmed_inuyasha_fix': 'disabled',
+                            // 🎮 CONFIGURAÇÃO CRÍTICA: HABILITAR ANALÓGICOS
+                            'pcsx_rearmed_pad1type': 'standard',  // Standard = DualShock
+                            'pcsx_rearmed_pad2type': 'standard',
+                            'pcsx_rearmed_analog_axis_modifier': 'circle',
+                            'pcsx_rearmed_negcon_deadzone': '0',
+                            'pcsx_rearmed_negcon_response': 'linear',
+                            'pcsx_rearmed_multitap1': 'disabled',
+                            'pcsx_rearmed_multitap2': 'disabled',
+                            'pcsx_rearmed_vibration': 'enabled'
                         };
+                        
+                        // 🎮 FORÇAR HABILITAÇÃO DOS ANALÓGICOS APÓS CARREGAR
+                        window.EJS_onGameStart = function() {
+                            console.log('[PS1] 🎮 Forçando habilitação dos analógicos...');
+                            setTimeout(() => {
+                                try {
+                                    // Tenta habilitar analógicos via RetroArch
+                                    if (window.Module && window.Module.ccall) {
+                                        // Comando para habilitar analógicos no PCSX ReARMed
+                                        window.Module.ccall('command_event', 'void', ['number'], [27]); // CMD_EVENT_RESET_CONTROLS
+                                        console.log('[PS1] ✅ Analógicos habilitados via RetroArch!');
+                                    }
+                                } catch (e) {
+                                    console.log('[PS1] ⚠️ Não foi possível forçar analógicos via Module:', e);
+                                }
+                            }, 1000);
+                        };
+                        
+                        console.log('[PS1] 🎮 DualShock Standard + Analógicos CONFIGURADO!');
+                        console.log('[PS1] 🎮 IMPORTANTE: Pressione L3 (clique no analógico esquerdo) no jogo para ativar o modo analógico!');
                         
                         // ⚡ TURBO MODE - Emulação sem limitação de FPS
                         window.EJS_vsync = false; // Desabilita V-Sync
@@ -1453,12 +1934,11 @@
                 window.EJS_netplay = false;
                 window.EJS_defaultControlsEnabled = true;
                 
-                // 🎮 GAMEPAD FÍSICO - SUPORTE COMPLETO
-                window.EJS_gamepad = true; // Habilita suporte a gamepad
-                window.EJS_gamepadPolling = true; // Polling contínuo do gamepad
+                // 🎮 GAMEPAD - DEIXAR EMULATORJS GERENCIAR AUTOMATICAMENTE
+                // Não definir EJS_gamepad ou EJS_gamepadPolling - automático
                 
-                // 🚫 REMOVE BOTÕES DE TRAPAÇA E NETPLAY
-                window.EJS_pathToSettings = false; // Remove botão de configurações
+                // ✅ PERMITIR ACESSO AO MENU DE CONFIGURAÇÕES
+                // window.EJS_pathToSettings = true; // Menu de configurações disponível
                 window.EJS_RESET_VARS = true; // Desabilita reset de variáveis
                 
                 // Mobile optimizations
@@ -1466,48 +1946,48 @@
                     console.log('[MOBILE] Applying mobile optimizations');
                     window.EJS_mobile = true;
                     
-                    // ✅ CONFIGURAÇÃO SEGURA DE CONTROLES
-                    try {
-                        window.EJS_VirtualGamepadSettings = {
-                            enabled: true,
-                            opacity: 0.8,
-                            size: device.isTouch ? 1.2 : 1.0
-                        };
-                        console.log('[MOBILE] ✅ Virtual gamepad configured');
-                    } catch (e) {
-                        console.warn('[MOBILE] ⚠️ Could not configure virtual gamepad:', e);
-                        // Fallback: desabilita gamepad se falhar
-                        window.EJS_VirtualGamepadSettings = { enabled: false };
-                    }
-                    
-                    // ✅ NÃO CONFIGURAR EJS_defaultControls - deixar EmulatorJS gerenciar
+                    // ✅ DEIXAR EMULATORJS GERENCIAR CONTROLES MOBILE AUTOMATICAMENTE
+                    // Não configurar EJS_VirtualGamepadSettings - causa bugs
                     console.log('[MOBILE] ✅ Usando controles padrão do EmulatorJS');
                     
                     window.EJS_cacheBust = true;
                     window.EJS_multitap = false;
                     window.EJS_forceLegacyAudio = device.isIOS;
                     
-                    // ✅ DESABILITA RECURSOS QUE PODEM CAUSAR PROBLEMAS
-                    window.EJS_alignStartButton = 'bottom'; // Garante posição fixa
+                    // Touch-specific optimizations
+                    window.EJS_touchEnabled = true;
+                    window.EJS_touchControls = true;
                     
                     // ✅ Otimizações específicas por plataforma (MOBILE)
                     if (platform.toLowerCase() === 'ps1') {
                         console.log('[PS1 MOBILE] 🚀 Otimizações TURBO para mobile');
-                        window.EJS_resolution = 0.85; // Boa resolução mas leve
-                        window.EJS_frameskip = 0; // Não pula frames (fluidez)
+                        window.EJS_resolution = 0.75; // Reduzido para mobile
+                        window.EJS_frameskip = 1; // Pula 1 frame ocasionalmente
                         window.EJS_audioBufferSize = 1024; // Buffer menor = mais responsivo
                         window.EJS_vsync = false; // Sem V-Sync
-                        window.EJS_throttle = false; // Sem limitador de velocidade
-                        console.log('[PS1 MOBILE] ✅ TURBO MODE ATIVADO');
+                        window.EJS_throttle = true; // Com limitador para estabilidade
+                        window.EJS_threads = false; // Sem threads em mobile
+                        console.log('[PS1 MOBILE] ✅ MODO OTIMIZADO MOBILE ATIVADO');
                     } else if (platform.toLowerCase() === 'n64') {
                         console.log('[N64 MOBILE] Otimizações agressivas');
                         window.EJS_resolution = 0.5;
                         window.EJS_frameskip = 2;
                         window.EJS_audioBufferSize = 2048;
+                        window.EJS_threads = false;
                     } else if (platform.toLowerCase() === 'genesis' || platform.toLowerCase() === 'megadrive') {
                         console.log('[GENESIS/MEGADRIVE MOBILE] Otimizações');
                         window.EJS_resolution = 1;
                         window.EJS_frameskip = 0;
+                    } else if (platform.toLowerCase() === 'snes' || platform.toLowerCase() === 'nes') {
+                        console.log('[SNES/NES MOBILE] Otimizações leves');
+                        window.EJS_resolution = 1;
+                        window.EJS_frameskip = 0;
+                        window.EJS_audioBufferSize = 512;
+                    } else if (platform.toLowerCase() === 'gba' || platform.toLowerCase() === 'gbc' || platform.toLowerCase() === 'gb') {
+                        console.log('[GB/GBC/GBA MOBILE] Performance máxima');
+                        window.EJS_resolution = 1;
+                        window.EJS_frameskip = 0;
+                        window.EJS_audioBufferSize = 512;
                     }
                 }
                 
@@ -1545,9 +2025,17 @@
                 }
 
                 
-                // Language - EmulatorJS doesn't support 'pt', using 'en' (English) instead
-                // Available languages: en, de, es, fr, it, ja, ko, nl, ru, zh-CN
-                window.EJS_language = 'en';
+                // Language - idioma inglês padrão
+                window.EJS_language = 'en-US';
+                
+                // 🔧 FIX: PS1 CHD SUPPORT - Usa versão com suporte a CHD
+                if (platform.toLowerCase() === 'ps1' && romUrl && romUrl.toLowerCase().endsWith('.chd')) {
+                    console.log('[PS1 CHD] 🔧 Detected CHD file - using updated data path');
+                    window.EJS_pathtodata = 'https://cdn.jsdelivr.net/gh/EmulatorJS/EmulatorJS@latest/data/';
+                    console.log('[PS1 CHD] ✅ Path configured for CHD support');
+                } else {
+                    window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
+                }
                 
                 // ✅ PROTEÇÃO MOBILE: Previne erros de "controls undefined"
                 window.EJS_DEBUG_XX = false; // Desabilita debug que pode causar erros
@@ -1570,71 +2058,26 @@
                 
                 // ✅ VARIÁVEL DE CONTROLE: Declarada ANTES dos callbacks
                 let gameStarted = false;
-                
-                // ✅ FALLBACK: Detecta jogo iniciado mesmo sem EJS_onGameStart
-                let gameStartCheckInterval = setInterval(() => {
-                    if (gameStarted) {
-                        clearInterval(gameStartCheckInterval);
-                        return;
-                    }
-                    
-                    // Procura por canvas ativo no DOM
-                    const gameElement = document.getElementById('game');
-                    if (gameElement) {
-                        const canvas = gameElement.querySelector('canvas');
-                        if (canvas && canvas.width > 0 && canvas.height > 0) {
-                            console.log('[FALLBACK] 🎮 Canvas detectado! Assumindo que jogo iniciou');
-                            console.log('[FALLBACK] Canvas:', canvas.width + 'x' + canvas.height);
-                            
-                            // Simula o onGameStart
-                            if (!gameStarted) {
-                                gameStarted = true;
-                                clearInterval(gameStartCheckInterval);
-                                    markEmulatorStarted('fallback canvas detection');
-                                
-                                // Executa callbacks
-                                originalCallbacks.forEach(cb => {
-                                    try {
-                                        cb();
-                                    } catch (e) {
-                                        console.warn('[CALLBACK] Error:', e);
-                                    }
-                                });
-                                
-                                // Esconde loading
-                                updateStatus('Jogo iniciado!', '✅ Carregado com sucesso!', 100);
-                                setTimeout(() => {
-                                    loading.classList.add('hidden');
-                                    loading.style.display = 'none';
-                                    console.log('[FALLBACK] ✅ Loading screen ocultado');
-                                }, 500);
-                                
-                                // Inicializa multiplayer APENAS se houver parâmetros
-                                const urlParams = new URLSearchParams(window.location.search);
-                                if (urlParams.has('peerId') || urlParams.has('sessionId')) {
-                                    initializePeerJS();
-                                }
-                            }
-                        }
-                    }
-                }, 1000); // Verifica a cada 1 segundo
-                
-                // Limpa interval após timeout
-                setTimeout(() => {
-                    clearInterval(gameStartCheckInterval);
-                }, 180000); // 3 minutos
-                
+                let fallbackCanvasInterval = null;
+                let fallbackCanvasTimeout = null;
+                let localLoaderWatchdog = null;
+
                 // Callbacks - VERSÃO UNIFICADA
                 const originalCallbacks = [];
-                
-                window.EJS_onGameStart = function() {
+
+                const triggerGameStart = (reason = 'manual-start') => {
+                    if (gameStarted) {
+                        console.log(`[GAME] ⚠️ triggerGameStart ignorado (${reason}) - jogo já iniciou.`);
+                        return;
+                    }
+
                     console.log('═══════════════════════════════════════════════════════');
-                    console.log('[GAME] 🎉🎉🎉 EJS_onGameStart CHAMADO! 🎉🎉🎉');
+                    console.log(`[GAME] 🎉🎉🎉 triggerGameStart chamado (${reason}) 🎉🎉🎉`);
                     console.log('[GAME] ✅ Started successfully!');
                     console.log('[GAME] Platform:', platform, '| ROM:', romUrl.substring(0, 50) + '...');
                     console.log('[GAME] 🔍 Checking EmulatorJS state...');
                     console.log('═══════════════════════════════════════════════════════');
-                    
+
                     // 🚨 VERIFICA SE O EMULADOR REALMENTE CARREGOU A ROM
                     if (typeof EJS_emulator !== 'undefined') {
                         console.log('[GAME] ✅ EJS_emulator exists');
@@ -1643,16 +2086,28 @@
                     } else {
                         console.error('[GAME] ❌ EJS_emulator is undefined! Game may not be running!');
                     }
-                    
-                    gameStarted = true; // ✅ Marca que o jogo iniciou
-                    markEmulatorStarted('EJS_onGameStart');
-                    
-                    // 🚀 Initialize multiplayer connections APENAS se houver parâmetros
+
+                    gameStarted = true;
+                    markEmulatorStarted(reason);
+
+                    if (localLoaderWatchdog) {
+                        clearTimeout(localLoaderWatchdog);
+                        localLoaderWatchdog = null;
+                    }
+                    if (fallbackCanvasInterval) {
+                        clearInterval(fallbackCanvasInterval);
+                        fallbackCanvasInterval = null;
+                    }
+                    if (fallbackCanvasTimeout) {
+                        clearTimeout(fallbackCanvasTimeout);
+                        fallbackCanvasTimeout = null;
+                    }
+
                     const urlParams = new URLSearchParams(window.location.search);
                     if (urlParams.has('peerId') || urlParams.has('sessionId')) {
                         initializePeerJS();
                     }
-                    
+
                     // Executa callbacks específicos de plataforma
                     originalCallbacks.forEach(cb => {
                         try {
@@ -1661,7 +2116,7 @@
                             console.warn('[CALLBACK] Error:', e);
                         }
                     });
-                    
+
                     updateStatus('Jogo iniciado!', '✅ Carregado com sucesso!', 100);
                     console.log('[GAME] Hiding loading screen in 500ms...');
                     setTimeout(() => {
@@ -1671,24 +2126,24 @@
                         loading.style.visibility = 'hidden';
                         loading.style.pointerEvents = 'none';
                         loading.style.opacity = '0';
-                        
+
                         // Força exibição do jogo
                         const gameElement = document.getElementById('game');
                         console.log('[DEBUG] Game element:', gameElement);
                         console.log('[DEBUG] Game element children:', gameElement?.children);
                         console.log('[DEBUG] All canvases in document:', document.querySelectorAll('canvas'));
-                        
+
                         if (gameElement) {
                             gameElement.style.display = 'block !important';
                             gameElement.style.visibility = 'visible !important';
                             gameElement.style.opacity = '1 !important';
                             gameElement.style.zIndex = '10000 !important';
                             gameElement.style.pointerEvents = 'auto !important';
-                            
+
                             // ✅ CRÍTICO: Força visibilidade do canvas
                             const canvas = gameElement.querySelector('canvas');
                             console.log('[DEBUG] Canvas inside game element:', canvas);
-                            
+
                             if (canvas) {
                                 console.log('[CANVAS] ✅ Canvas encontrado, forçando visibilidade');
                                 canvas.style.display = 'block !important';
@@ -1717,7 +2172,7 @@
                                 }, 1000);
                             }
                         }
-                        
+
                         // Remove qualquer overlay ou elemento de loading criado pelo EmulatorJS
                         const overlays = document.querySelectorAll('[class*="overlay"], [class*="loading"], [class*="loader"], [id*="overlay"], [id*="loader"]');
                         overlays.forEach(el => {
@@ -1726,14 +2181,14 @@
                                 el.style.visibility = 'hidden !important';
                             }
                         });
-                        
+
                         // Force reflow para garantir que CSS seja aplicado
                         void loading.offsetHeight;
                         void gameElement?.offsetHeight;
-                        
+
                         notifyParent({ type: 'emulator-ready' });
                         console.log('[GAME] ✅ Loading screen hidden, game is now playable!');
-                        
+
                         // 🎥 STREAMING: Capturar e enviar frames para multiplayer
                         console.log('═══════════════════════════════════════════════════════');
                         console.log('[STREAMING] 🚀🚀🚀 INICIANDO CAPTURA DE FRAMES 🚀🚀🚀');
@@ -1754,18 +2209,17 @@
                                     frameCounter++;
                                     canvasNotFoundCount = 0; // Reset counter
                                     // Envia 5 frames por segundo (a cada 200ms) com qualidade reduzida
-                                    const dataUrl = canvas.toDataURL('image/jpeg', 0.3); // Qualidade 30% para manter abaixo de 900KB
+                                    const dataUrl = canvas.toDataURL('image/jpeg', 0.3);
                                     const frameSizeKB = Math.round(dataUrl.length / 1024);
-                                    
-                                    notifyParent({ 
-                                        type: 'emulator-frame', 
+
+                                    notifyParent({
+                                        type: 'emulator-frame',
                                         canvas: dataUrl,
                                         frameNumber: frameCounter,
                                         timestamp: Date.now(),
                                         sizeKB: frameSizeKB
                                     });
-                                    
-                                    // Log a cada 25 frames (~5 segundos a 5fps)
+
                                     if (frameCounter === 1) {
                                         console.log(`[STREAMING] ✅ Primeiro frame capturado e enviado! (${frameSizeKB}KB)`);
                                     } else if (frameCounter % 25 === 0) {
@@ -1773,7 +2227,6 @@
                                     }
                                 } else {
                                     canvasNotFoundCount++;
-                                    // Log a cada 5 tentativas (1 segundo)
                                     if (canvasNotFoundCount % 5 === 1) {
                                         const gameEl = document.querySelector('#game');
                                         const canvasEl = document.querySelector('#game canvas');
@@ -1789,81 +2242,70 @@
                             } catch (e) {
                                 console.error('[STREAMING] ❌ Erro ao capturar frame:', e);
                             }
-                        }, 200); // 5 FPS para streaming (reduzido para economizar bandwidth)
-                        
-                        // Limpa o interval se a página for fechada
+                        }, 200);
+
                         window.addEventListener('beforeunload', () => {
                             clearInterval(streamInterval);
                             console.log('[STREAMING] 🛑 Streaming parado');
                         });
                     }, 500);
-                    
-                    // ✅ MONITORAMENTO: Observa mudanças para garantir que o loading não reaparece
+
                     const observer = new MutationObserver(() => {
-                        // Se loading ainda tem a classe hidden mas está visível, força ocultar
                         if (loading.classList.contains('hidden') && loading.offsetParent !== null) {
                             console.log('[OBSERVER] Loading é visível apesar de ter classe hidden, forçando ocultação');
                             loading.style.display = 'none !important';
                             loading.style.visibility = 'hidden !important';
                         }
-                        
-                        // Se loading perdeu a classe hidden, readiciona
+
                         if (!loading.classList.contains('hidden')) {
                             console.log('[OBSERVER] Loading perdeu classe hidden, readicionando');
                             loading.classList.add('hidden');
                             loading.style.display = 'none !important';
                         }
                     });
-                    
+
                     observer.observe(loading, {
                         attributes: true,
                         attributeFilter: ['class', 'style'],
                         subtree: false
                     });
-                    
-                    // Para o observer após 10 segundos (loading deve estar definitivamente oculto)
+
                     setTimeout(() => {
                         observer.disconnect();
                         console.log('[OBSERVER] ✅ Observer desconectado após 10s');
                     }, 10000);
-                    
-                    // ✅ CONFIGURAÇÃO SEGURA DE VOLUME COM RETRY E FORÇA MÁXIMA
+
                     const trySetVolume = (attempts = 0, maxAttempts = 10) => {
                         setTimeout(() => {
                             try {
                                 if (window.EJS_emulator) {
-                                    // Tenta forçar volume máximo por múltiplas formas
                                     let success = false;
-                                    
-                                    // Método 1: setVolume
+
                                     if (typeof window.EJS_emulator.setVolume === 'function') {
                                         window.EJS_emulator.setVolume(1.0);
                                         console.log('[AUDIO] ✅ Volume configurado via setVolume: 100%');
                                         success = true;
                                     }
-                                    
-                                    // Método 2: volume property
+
                                     if (typeof window.EJS_emulator.volume !== 'undefined') {
                                         window.EJS_emulator.volume = 1.0;
                                         console.log('[AUDIO] ✅ Volume configurado via property: 100%');
                                         success = true;
                                     }
-                                    
-                                    // Método 3: Unmute se estiver muted
+
                                     if (typeof window.EJS_emulator.mute === 'function' && typeof window.EJS_emulator.unmute === 'function') {
                                         window.EJS_emulator.unmute();
                                         console.log('[AUDIO] ✅ Áudio desmutado');
                                         success = true;
                                     }
-                                    
-                                    // Método 4: AudioContext direto
+
                                     if (window.EJS_emulator.audioContext) {
                                         if (window.EJS_emulator.audioContext.destination.maxChannelCount) {
                                             console.log('[AUDIO] ✅ AudioContext detectado, channels:', window.EJS_emulator.audioContext.destination.maxChannelCount);
                                         }
                                         success = true;
                                     }
-                                    
+
                                     if (!success && attempts < maxAttempts) {
                                         console.log(`[AUDIO] 🔄 Tentando configurar volume novamente (${attempts + 1}/${maxAttempts})...`);
                                         trySetVolume(attempts + 1, maxAttempts);
@@ -1873,17 +2315,15 @@
                                 }
                             } catch (e) {
                                 console.log('[AUDIO] ⚠️ Erro ao configurar volume:', e.message);
-                                // Continua tentando mesmo com erro
                                 if (attempts < maxAttempts) {
                                     trySetVolume(attempts + 1, maxAttempts);
                                 }
                             }
-                        }, attempts === 0 ? 1000 : 500); // Primeira tentativa em 1s, depois 500ms entre tentativas
+                        }, attempts === 0 ? 1000 : 500);
                     };
-                    
+
                     trySetVolume();
-                    
-                    // 🔊 PROTEÇÃO ADICIONAL: Força volume após 5 segundos
+
                     setTimeout(() => {
                         if (window.EJS_emulator && typeof window.EJS_emulator.setVolume === 'function') {
                             window.EJS_emulator.setVolume(1.0);
@@ -1891,6 +2331,43 @@
                         }
                     }, 5000);
                 };
+
+                window.EJS_onGameStart = function() {
+                    triggerGameStart('EJS_onGameStart');
+                };
+
+                // ✅ FALLBACK: Detecta início através do canvas mesmo sem EJS_onGameStart
+                fallbackCanvasInterval = setInterval(() => {
+                    if (gameStarted) {
+                        return;
+                    }
+
+                    const gameElement = document.getElementById('game');
+                    const canvas = gameElement?.querySelector('canvas');
+
+                    if (canvas && canvas.width > 0 && canvas.height > 0) {
+                        console.log('[FALLBACK] 🎮 Canvas detectado! Iniciando fluxo manual.');
+                        triggerGameStart('fallback canvas detection');
+                    }
+                }, 1000);
+
+                fallbackCanvasTimeout = setTimeout(() => {
+                    if (fallbackCanvasInterval) {
+                        clearInterval(fallbackCanvasInterval);
+                        fallbackCanvasInterval = null;
+                    }
+                }, 180000); // 3 minutos de janela para fallback
+
+                originalCallbacks.push(() => {
+                    if (fallbackCanvasInterval) {
+                        clearInterval(fallbackCanvasInterval);
+                        fallbackCanvasInterval = null;
+                    }
+                    if (fallbackCanvasTimeout) {
+                        clearTimeout(fallbackCanvasTimeout);
+                        fallbackCanvasTimeout = null;
+                    }
+                });
                 
                 // ✅ PS1 TIMEOUT PROTECTION
                 if (platform.toLowerCase() === 'ps1') {
@@ -1935,18 +2412,11 @@
                 
                 // 🚨 CALLBACK DE ERRO CRÍTICO
                 window.EJS_onError = function(error) {
-                    console.error('========================================');
-                    console.error('[EMULATOR ERROR] ❌ ERRO CRÍTICO NO EMULADOR');
-                    console.error('[EMULATOR ERROR] Mensagem:', error);
-                    console.error('[EMULATOR ERROR] Tipo:', typeof error);
-                    console.error('[EMULATOR ERROR] Stack:', error?.stack);
+                    console.error('[EMULATOR ERROR] ❌', error);
                     console.error('[EMULATOR ERROR] ROM URL:', romUrl);
                     console.error('[EMULATOR ERROR] Platform:', platform);
                     console.error('[EMULATOR ERROR] Core:', config.core);
-                    console.error('[EMULATOR ERROR] EJS_gameUrl:', window.EJS_gameUrl);
-                    console.error('[EMULATOR ERROR] EJS_pathtodata:', window.EJS_pathtodata);
-                    console.error('========================================');
-                    showError(`Erro ao carregar jogo: ${error}\n\nROM: ${romUrl}\n\nPlataforma: ${platform}\n\nCore: ${config.core}`);
+                    showError(`Erro ao carregar jogo: ${error}\n\nROM: ${romUrl}`);
                 };
                 
                 // ✅ PS1 LOADING PROGRESS MESSAGES COM BARRA DE PROGRESSO
@@ -2014,56 +2484,47 @@
                     });
                 }
                 
-                // ✅ TIMEOUT DE SEGURANÇA: Ajustado por plataforma + Multiplayer
-                // Multiplayer pode demorar mais por causa da conexão P2P
-                const multiplayerParams = new URLSearchParams(window.location.search);
-                const isMultiplayer = Boolean(multiplayerParams.get('peerId') || multiplayerParams.get('sessionId'));
+                // ✅ TIMEOUT DE SEGURANÇA: Ajustado por plataforma COM TIMEOUTS MAIORES
+                // Verificar se temos conexão lenta pelo User-Agent ou performance
+                const isSlowNetwork = navigator.connection?.effectiveType === '3g' || 
+                                     navigator.connection?.effectiveType === '4g' ||
+                                     navigator.connection?.effectiveType === 'slow-2g' ||
+                                     navigator.connection?.effectiveType === '2g';
+                
                 let timeoutDuration;
-                if (isMultiplayer) {
-                    // Modo Multiplayer: tempos MUITO maiores para evitar timeout prematuro
-                    timeoutDuration = platform.toLowerCase() === 'ps1' ? 180000 : 
-                                     platform.toLowerCase() === 'snes' ? 150000 : 90000; // PS1: 180s, SNES: 150s, outros: 90s
+                if (platform.toLowerCase() === 'ps1') {
+                    timeoutDuration = isSlowNetwork ? 150000 : 120000; // PS1: 2-2.5min
+                } else if (platform.toLowerCase() === 'snes') {
+                    timeoutDuration = isSlowNetwork ? 90000 : 60000; // SNES: 1-1.5min
                 } else {
-                    // Modo Single Player: tempos mais generosos para SNES
-                    timeoutDuration = platform.toLowerCase() === 'ps1' ? 90000 : 
-                                     platform.toLowerCase() === 'snes' ? 60000 : 45000; // SNES: 60s, PS1: 90s, outros: 45s
+                    timeoutDuration = isSlowNetwork ? 60000 : 45000; // Outros: 45s-1min
                 }
                 
-                console.log('[TIMEOUT] ⏱️ Timeout configurado para:', timeoutDuration / 1000, 'segundos');
-                console.log('[TIMEOUT] Modo:', isMultiplayer ? 'Multiplayer' : 'Single Player');
-                console.log('[TIMEOUT] Platform:', platform);
+                console.log(`[TIMEOUT] Timeout configurado para ${timeoutDuration / 1000}s (rede ${isSlowNetwork ? 'lenta' : 'normal'})`);
                 
-                // ⚠️ AVISO INTERMEDIÁRIO: Mostra mensagem de "ainda carregando" na metade do tempo
+                // ⚠️ AVISO INTERMEDIÁRIO: Mostra mensagem de "ainda carregando" EM 75% DO TEMPO
+                // (Não mais na metade, para evitar avisos prematuros)
                 const warningTimeout = setTimeout(() => {
                     if (!gameStarted && !loading.classList.contains('hidden')) {
                         console.warn('[TIMEOUT] Game taking longer than expected...');
                         const platformName = config.name || platform.toUpperCase();
                         updateStatus(
                             `⏳ ${platformName} ainda carregando...`,
-                            'Isso pode demorar um pouco. Por favor, aguarde...',
-                            70
+                            'Isso pode demorar um pouco mais. Carregando ROM grande, por favor aguarde...',
+                            75
                         );
                     }
-                }, timeoutDuration / 2);
+                }, timeoutDuration * 0.75);
                 
                 const loadTimeout = setTimeout(() => {
                     if (!gameStarted && !loading.classList.contains('hidden')) {
-                        console.error('[TIMEOUT] Game failed to start within timeout');
-                        console.error('[TIMEOUT] ROM URL was:', romUrl);
-                        console.error('[TIMEOUT] Platform:', platform);
-                        
+                        console.error('[TIMEOUT] Game failed to start within timeout of', timeoutDuration / 1000, 'seconds');
                         if (platform.toLowerCase() === 'ps1') {
-                            showError('PS1: Arquivo muito grande ou corrompido. Tente:\n1. Usar arquivo .bin + .cue\n2. Comprimir com CHD\n3. Jogo menor (menos de 500MB)');
+                            showError('PS1: Arquivo demorou demais para carregar (' + (timeoutDuration / 1000) + 's).\n\nSoluções:\n1. Verifique sua conexão de rede\n2. Tente arquivo .bin + .cue\n3. Use CHD (mais comprimido)\n4. Escolha jogo menor (< 500MB)\n5. Recarregue a página e tente novamente');
                         } else if (platform.toLowerCase() === 'snes') {
-                            showError(`SNES: Falha ao carregar "${gameTitle}"\n\n` +
-                                     'Possíveis causas:\n' +
-                                     '1. ⏱️ ROM muito grande - aguarde mais um pouco\n' +
-                                     '2. 📁 Arquivo ROM não encontrado\n' +
-                                     '3. 🔒 Arquivo corrompido ou formato inválido\n' +
-                                     '4. 🌐 Problema de conexão\n\n' +
-                                     'Formatos suportados: .smc, .sfc, .zip');
+                            showError('SNES: Falha ao carregar o jogo (' + (timeoutDuration / 1000) + 's).\n\nVerifique:\n1. Sua conexão de internet está estável?\n2. Arquivo ROM é válido (.smc, .sfc ou .zip)?\n3. Tente recarregar a página\n4. Escolha um jogo diferente');
                         } else {
-                            showError('O jogo demorou muito para carregar. Tente novamente ou escolha outro jogo.');
+                            showError('O jogo demorou muito para carregar (' + (timeoutDuration / 1000) + 's).\n\nTente:\n1. Recarregar a página\n2. Verificar conexão de internet\n3. Escolher outro jogo\n4. Aguardar alguns minutos');
                         }
                     }
                 }, timeoutDuration);
@@ -2098,37 +2559,12 @@
                     };
                 };
                 
-                // ✅ CARREGAMENTO SIMPLIFICADO - DIRETO DO LOCAL
-                console.log('[LOCAL] 🚀 Carregando EmulatorJS dos arquivos locais...');
-                console.log('[LOCAL] Caminho do loader:', '/emulatorjs/loader.js');
-                console.log('[LOCAL] EJS_pathtodata:', window.EJS_pathtodata);
-                console.log('[LOCAL] EJS_gameUrl:', window.EJS_gameUrl);
-                console.log('[LOCAL] EJS_core:', window.EJS_core);
-                updateStatus('Carregando emulador...', 'Arquivos locais', 30);
+                // ✅ CARREGAMENTO DIRETO DO CDN (RÁPIDO E CONFIÁVEL)
+                console.log('[CDN] 🚀 Carregando EmulatorJS do CDN (método original)...');
+                updateStatus('Carregando emulador...', 'Carregando do CDN...', 30);
                 
-                // Cria e adiciona o script loader
-                loaderScript = document.createElement('script');
-                loaderScript.src = '/emulatorjs/loader.js';
-                loaderScript.type = 'text/javascript';
-                loaderScript.async = false;
-                
-                loaderScript.onload = () => {
-                    console.log('[LOCAL] ✅✅✅ loader.js carregado com sucesso!');
-                    console.log('[LOCAL] window.EJS:', typeof window.EJS);
-                    console.log('[LOCAL] window.EmulatorJS:', typeof window.EmulatorJS);
-                    updateStatus('Emulador carregado!', 'Preparando jogo...', 60);
-                };
-                
-                loaderScript.onerror = (error) => {
-                    console.error('[LOCAL] ❌❌❌ ERRO FATAL ao carregar loader.js');
-                    console.error('[LOCAL] Erro:', error);
-                    console.error('[LOCAL] Arquivo:', loaderScript.src);
-                    showError('❌ Erro ao carregar emulador local\n\nVerifique se /public/emulatorjs/loader.js existe\n\nTente recarregar a página.');
-                };
-                
-                console.log('[LOCAL] Adicionando script ao DOM...');
-                document.body.appendChild(loaderScript);
-                console.log('[LOCAL] Script adicionado, aguardando carregamento...');
+                // Usa CDN direto como antes (funcionava rápido)
+                loadFromCdn(0);
                 
             } catch (err) {
                 showError(err.message || 'Erro ao inicializar emulador');
@@ -2170,6 +2606,14 @@
             }
 
             clearCdnBootGuard('new attempt');
+            
+            // 🔧 FIX: Se for PS1 CHD, priorizar CDN com suporte CHD
+            const isCHD = romUrl && romUrl.toLowerCase().endsWith('.chd');
+            if (isCHD && platform.toLowerCase() === 'ps1' && index === 0) {
+                console.log('[PS1 CHD] 🔧 Detected CHD file - prioritizing jsdelivr CDN');
+                // Pula para o CDN com suporte CHD (índice 1)
+                index = 1;
+            }
 
             if (index >= CDN_SOURCES.length) {
                 if (window.__EJS_gameStarted) {
@@ -2253,6 +2697,31 @@
             console.log(`[CDN] Loading from ${source.name}... (Attempt ${index + 1}/${CDN_SOURCES.length})`);
             updateStatus('Baixando emulador...', `Fonte: ${source.name} (${index + 1}/${CDN_SOURCES.length})`, 20 + (index * 10));
             
+            // ========================================
+            // 🔧 FIX: Garantir que todos os elementos DOM necessários existam
+            // ========================================
+            const gameContainer = document.getElementById('game');
+            if (gameContainer) {
+                // Adicionar elementos faltantes que o EmulatorJS precisa
+                if (!gameContainer.querySelector('.ejs-main-screen')) {
+                    const mainScreen = document.createElement('div');
+                    mainScreen.className = 'ejs-main-screen';
+                    gameContainer.appendChild(mainScreen);
+                    console.log('[DOM FIX] ✅ Elemento .ejs-main-screen criado');
+                }
+                
+                if (!gameContainer.querySelector('.ejs_game_screen')) {
+                    const gameScreen = document.createElement('div');
+                    gameScreen.className = 'ejs_game_screen';
+                    gameContainer.appendChild(gameScreen);
+                    console.log('[DOM FIX] ✅ Elemento .ejs_game_screen criado');
+                }
+                
+                console.log('[DOM FIX] ✅ Todos os elementos DOM necessários garantidos');
+            } else {
+                console.error('[DOM FIX] ❌ #game container não encontrado!');
+            }
+            
             loaderScript = document.createElement('script');
             loaderScript.crossOrigin = 'anonymous';
             loaderScript.src = `${source.base}loader.js`;
@@ -2285,6 +2754,49 @@
                 console.log(`[DIAGNOSTIC] EJS_onGameStart defined: ${typeof window.EJS_onGameStart === 'function'}`);
                 console.log(`[DIAGNOSTIC] EJS_startOnLoaded: ${window.EJS_startOnLoaded}`);
                 console.log(`[DIAGNOSTIC] DOM #game exists: ${!!document.getElementById('game')}`);
+                
+                // ========================================
+                // 🔧 PATCH CRÍTICO: Corrigir métodos do EmulatorJS
+                // ========================================
+                setTimeout(() => {
+                    try {
+                        if (window.EmulatorJS && window.EmulatorJS.prototype) {
+                            // Patch handleResize
+                            const originalHandleResize = window.EmulatorJS.prototype.handleResize;
+                            if (originalHandleResize) {
+                                window.EmulatorJS.prototype.handleResize = function(...args) {
+                                    try {
+                                        const gameContainer = document.getElementById('game');
+                                        if (!gameContainer || !gameContainer.querySelector) return null;
+                                        return originalHandleResize.apply(this, args);
+                                    } catch (err) {
+                                        console.warn('[PATCH] handleResize silenciado:', err.message);
+                                        return null;
+                                    }
+                                };
+                                console.log('[PATCH] ✅ handleResize protegido');
+                            }
+                            
+                            // Patch startGame
+                            const originalStartGame = window.EmulatorJS.prototype.startGame;
+                            if (originalStartGame) {
+                                window.EmulatorJS.prototype.startGame = function(...args) {
+                                    const gameContainer = document.getElementById('game');
+                                    if (gameContainer && !gameContainer.querySelector('.ejs-main-screen')) {
+                                        const mainScreen = document.createElement('div');
+                                        mainScreen.className = 'ejs-main-screen';
+                                        gameContainer.appendChild(mainScreen);
+                                    }
+                                    return originalStartGame.apply(this, args);
+                                };
+                                console.log('[PATCH] ✅ startGame protegido');
+                            }
+                        }
+                    } catch (patchErr) {
+                        console.warn('[PATCH] Erro ao aplicar patches:', patchErr);
+                    }
+                }, 50);
+                
                 window.__EJS_lastLoaderSource = source.name;
                 if (window.__EJS_gameStarted) {
                     console.log(`[CDN] ${source.name} carregado após o início do jogo; nenhum fallback adicional necessário.`);
@@ -2436,6 +2948,13 @@
             const errorStack = event.error?.stack || '';
             console.error('[WINDOW ERROR]', event.error, errorMsg);
             
+            // ❌ IGNORA "Script error" (erro genérico de CORS)
+            if (errorMsg === 'Script error.' || errorMsg === 'Script error') {
+                console.warn('[IGNORED ERROR] ⚠️ Script error (CORS-related, non-critical)');
+                event.preventDefault();
+                return; // Não mostra erro ao usuário
+            }
+            
             // ❌ IGNORA ERROS DE loadSettings E setVolume (não são críticos)
             if (errorMsg.includes('loadSettings') || 
                 errorMsg.includes('setVolume') || 
@@ -2456,6 +2975,7 @@
                 return;
             }
             
+            // Só mostra erro se loading ainda estiver visível (jogo não iniciou)
             if (!loading.classList.contains('hidden')) {
                 showError(errorMsg || 'Erro ao carregar o jogo');
             }
@@ -2577,9 +3097,11 @@
             detectGamepads();
         });
         
-        // Teste de input do gamepad (debug)
+        // ✅ TESTE DE INPUT DESABILITADO - causa interferência
+        // EmulatorJS deve ter controle exclusivo dos inputs
         function testGamepadInput() {
-            const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
+            // ❌ NÃO TESTA INPUTS - deixa EmulatorJS processar
+            return; // Early return
             
             for (let i = 0; i < gamepads.length; i++) {
                 const gp = gamepads[i];
@@ -2601,11 +3123,13 @@
             }
         }
         
-        // Polling contínuo (necessário para alguns navegadores)
+        // ✅ POLLING DESABILITADO - EmulatorJS gerencia gamepads internamente
+        // Polling externo causa interferência e botões param de funcionar
         function startGamepadPolling() {
-            if (gamepadCheckInterval) return;
-            
-            console.log('[GAMEPAD] Starting polling...');
+            // ❌ NÃO INICIA POLLING - deixa EmulatorJS gerenciar
+            console.log('[GAMEPAD] ⚠️ Polling externo DESABILITADO para evitar interferência');
+            console.log('[GAMEPAD] EmulatorJS gerenciará gamepads automaticamente');
+            return; // Early return - não faz nada
             console.log('[GAMEPAD] Press any button on your controller to test...');
             
             // Detecção inicial
@@ -2631,8 +3155,9 @@
             }
         }
         
-        // Inicia polling quando página carregar
-        startGamepadPolling();
+        // ❌ NÃO INICIAR POLLING - EmulatorJS gerencia gamepads
+        // startGamepadPolling(); // COMENTADO - causava interferência
+        console.log('[GAMEPAD] ✅ Polling desabilitado - EmulatorJS tem controle total');
         
         // Para polling quando página descarregar
         window.addEventListener('beforeunload', stopGamepadPolling);
@@ -2642,9 +3167,18 @@
         // ========================================
         
         if (!romUrl) {
-            showError('Nenhuma ROM foi especificada na URL');
+            // Aguardar ROM via postMessage (enviada pelo GamePlayer.tsx)
+            console.log('[INIT] ⏳ Aguardando ROM via postMessage...');
+            updateStatus('Aguardando jogo...', 'Conectando ao emulador');
+            
+            // Timeout de 10 segundos para receber ROM
+            setTimeout(() => {
+                if (!romUrl && !window.__EJS_gameStarted) {
+                    showError('Nenhuma ROM foi especificada. Verifique se o jogo está disponível.');
+                }
+            }, 10000);
         } else {
-            // Start loading
+            // Start loading imediatamente se ROM já estiver na URL
             loadEmulator();
         }
         
