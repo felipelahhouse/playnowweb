@@ -1588,6 +1588,33 @@
                 window.EJS_gameUrl = romUrl;
                 window.EJS_gameName = gameTitle;
                 
+                // 🔍 VERIFICAÇÃO: Testar se ROM existe (fetch HEAD request)
+                if (romUrl && (romUrl.startsWith('http://') || romUrl.startsWith('https://'))) {
+                    console.log('[ROM CHECK] Verificando disponibilidade:', romUrl);
+                    fetch(romUrl, { method: 'HEAD' })
+                        .then(response => {
+                            if (!response.ok) {
+                                console.error('[ROM CHECK] ❌ ROM não encontrada (HTTP ' + response.status + ')');
+                                throw new Error('ROM não encontrada no servidor');
+                            }
+                            console.log('[ROM CHECK] ✅ ROM disponível');
+                        })
+                        .catch(error => {
+                            console.error('[ROM CHECK] ❌ Erro ao verificar ROM:', error);
+                            showError('❌ Arquivo do jogo não encontrado!\n\n' +
+                                     '🎮 O jogo não está disponível no servidor.\n\n' +
+                                     '📁 Arquivo: ' + romUrl.split('/').pop() + '\n\n' +
+                                     '💡 Possíveis causas:\n' +
+                                     '1. O arquivo não foi enviado para o Cloudflare R2\n' +
+                                     '2. O nome do arquivo está incorreto no banco\n' +
+                                     '3. O arquivo foi movido ou deletado do R2\n\n' +
+                                     '🔧 Solução:\n' +
+                                     '• Faça upload do arquivo .chd para o Cloudflare R2\n' +
+                                     '• Verifique se o nome do arquivo está correto\n' +
+                                     '• Use o script upload_ps1_to_r2.ps1 para enviar');
+                        });
+                }
+                
                 // ⚡ OTIMIZAÇÃO: Idioma em inglês para evitar erros de tradução
                 window.EJS_language = 'en-US';
                 window.EJS_pathtodata = 'https://cdn.emulatorjs.org/stable/data/';
